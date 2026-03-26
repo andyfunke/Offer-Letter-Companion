@@ -1,9 +1,9 @@
-// Security config is validated at import time — server refuses to start if
-// required environment variables are missing.
+// Security config validation runs at import — fails fast if required env vars missing
 import "./config/security";
 
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -16,57 +16,59 @@ import {
   securityNoticeHeader,
 } from "./middleware/security";
 import { auditLogger } from "./middleware/audit";
+import { attachUser } from "./middleware/auth-guard";
 import { MAX_JSON_BODY_SIZE, SECURITY_CONFIG } from "./config/security";
 
 const app: Express = express();
 
-// ── 1. Security headers (must be first) ──────────────────────────────────
+// Trust the first proxy (Replit's reverse proxy) so rate-limiting uses the
+// correct client IP from X-Forwarded-For instead of the proxy IP.
+app.set("trust proxy", 1);
+
+// ── 1. Security headers ───────────────────────────────────────────────────
 app.use(helmetMiddleware);
 app.use(securityNoticeHeader);
 
 // ── 2. CORS ───────────────────────────────────────────────────────────────
 app.use(cors(corsOptions()));
 
-// ── 3. Request logging (redacts auth/cookie headers) ─────────────────────
+// ── 3. Cookie parsing (required for session cookie auth) ──────────────────
+app.use(cookieParser());
+
+// ── 4. Request logging ────────────────────────────────────────────────────
 app.use(
   pinoHttp({
     logger,
     serializers: {
-      req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          // Strip query string so no PII leaks via URL params
-          url: req.url?.split("?")[0],
-        };
-      },
-      res(res) {
-        return { statusCode: res.statusCode };
-      },
+      req(req) { return { id: req.id, method: req.method, url: req.url?.split("?")[0] }; },
+      res(res) { return { statusCode: res.statusCode }; },
     },
   }),
 );
 
-// ── 4. Body parsing with strict size limits ───────────────────────────────
+// ── 5. Body parsing with size limits ─────────────────────────────────────
 app.use(express.json({ limit: MAX_JSON_BODY_SIZE }));
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 
-// ── 5. Request size guard ─────────────────────────────────────────────────
+// ── 6. Request size guard ─────────────────────────────────────────────────
 app.use(requestSizeGuard);
 
-// ── 6. Input sanitization (HTML / null-byte stripping) ───────────────────
+// ── 7. Input sanitization ─────────────────────────────────────────────────
 app.use(inputSanitizer);
 
-// ── 7. Rate limiting ──────────────────────────────────────────────────────
+// ── 8. Rate limiting ──────────────────────────────────────────────────────
 app.use("/api", apiRateLimiter);
 
-// ── 8. Audit logging for sensitive operations ─────────────────────────────
+// ── 9. Audit logging ──────────────────────────────────────────────────────
 app.use(auditLogger);
 
-// ── 9. Routes ─────────────────────────────────────────────────────────────
+// ── 10. Attach authenticated user to every request ────────────────────────
+app.use(attachUser);
+
+// ── 11. Routes ────────────────────────────────────────────────────────────
 app.use("/api", router);
 
-// ── 10. Security config endpoint (non-sensitive summary only) ─────────────
+// ── 12. Security config summary (non-sensitive) ───────────────────────────
 app.get("/api/security/config-summary", (_req, res) => {
   res.json({
     rateLimitWindowMs: SECURITY_CONFIG.rateLimitWindowMs,
@@ -81,7 +83,7 @@ app.get("/api/security/config-summary", (_req, res) => {
   });
 });
 
-// ── 11. Global error handler ──────────────────────────────────────────────
+// ── 13. Global error handler ──────────────────────────────────────────────
 app.use(
   (
     err: Error,
@@ -90,10 +92,7 @@ app.use(
     _next: express.NextFunction,
   ) => {
     logger.error({ err: { message: err.message, name: err.name } }, "Unhandled error");
-    // Never expose stack traces in production
-    const message = SECURITY_CONFIG.isProduction
-      ? "An unexpected error occurred."
-      : err.message;
+    const message = SECURITY_CONFIG.isProduction ? "An unexpected error occurred." : err.message;
     res.status(500).json({ error: message });
   },
 );

@@ -1,0 +1,432 @@
+Modify the existing Kinross Offer Letter Companion app with the following additive features only.
+
+This is an extension to the current application.
+Do not remove or rewrite existing business logic, clause logic, security model, document generation flow, or current UI architecture unless a small targeted change is required to support the additions below.
+Preserve the current app behavior and structure as much as possible.
+
+==================================================
+ADDITIVE FEATURE SET
+==================================================
+
+Add all of the following:
+
+1. telemetry / issue-capture module
+2. non-interactive issue preview popup
+3. user login page
+4. admin area for user account and permission management
+
+These changes are additive only.
+
+==================================================
+PART 1: TELEMETRY / ISSUE-CAPTURE MODULE
+==================================================
+
+Implement a telemetry module that records user-reported UI/document issues at the element level.
+
+Telemetry scope:
+- track only element-specific issue reports
+- do not track general clicks
+- do not track keystrokes
+- do not track mouse movement
+- do not track non-element interactions
+- do not capture passive analytics
+- do not act as session replay
+
+Telemetry records must be created only when a user explicitly invokes the issue-report action on a specific UI element.
+
+Telemetry record requirements
+Each issue record must contain:
+
+- issue_id
+- timestamp_utc
+- reporting_user_id
+- reporting_user_display_name
+- current_route
+- page_title
+- element_id
+- element_name
+- element_role
+- element_label_text if available
+- component_name if available
+- issue_summary_plain_english
+- optional_issue_detail_plain_english
+- screenshot_or_shell_reference_id
+- preview_route
+- app_version
+- active_template_profile if applicable
+- active_scenario if applicable
+- current_section if applicable
+
+The issue log must be written in plain English and readable by non-engineers.
+
+Example log style:
+“On 2026-03-26 14:32 UTC, Andy reported an issue on the Compensation section at the Biweekly Amount field. The issue appears on the Offer Editor page. Preview available.”
+
+Do not log raw sensitive candidate field values in telemetry.
+Do not log salary values, email addresses, or full resume contents inside telemetry entries.
+Use structural references only.
+
+Telemetry triggering model
+Add an explicit “Report Issue” interaction mode for authorized users.
+
+Behavior:
+1. User activates issue-report mode.
+2. UI shows selectable/highlightable reportable elements only.
+3. User selects one element.
+4. User enters:
+   - short plain-English issue summary
+   - optional detail
+5. App captures the metadata listed above.
+6. App generates a non-interactive shell preview of the affected page state.
+7. App saves telemetry record.
+8. App exits issue-report mode.
+
+Telemetry storage
+- store telemetry separately from operational audit logs
+- telemetry is application support data, not security audit data
+- secure it with the same RBAC model
+- do not expose telemetry publicly
+- encrypt at rest if persisted
+- include retention settings in security config
+
+==================================================
+PART 2: NON-INTERACTIVE ISSUE PREVIEW POPUP
+==================================================
+
+When an issue is reported, generate a preview artifact that shows where the issue is without exposing the live editable workflow.
+
+This preview must behave like a non-interactive popup window or modal artifact.
+
+Requirements:
+- show a shell version of the relevant page
+- do not show a live editable form
+- do not allow typing, clicking, changing fields, navigation, or submission
+- visually demarcate the popup as non-interactive
+- include a clear label such as:
+  “Issue Preview – Read Only”
+- highlight the reported element in red
+- dim or neutralize surrounding page content
+- if the real page normally contains populated candidate data, render a structural shell only
+- shell should preserve:
+  - layout
+  - section names
+  - page name
+  - form structure
+  - approximate field placement
+- shell must not show actual candidate values
+- shell may show placeholders like:
+  - [Candidate Name]
+  - [Compensation Field]
+  - [PTO Field]
+- include a link from the telemetry log entry to this preview artifact
+
+Preview generation rules
+- base the preview on the current route and component structure
+- sanitize all content before rendering preview
+- render only the minimum necessary page structure to locate the issue
+- if the element belongs to a document preview, create a static red-box overlay on a sanitized document shell
+- if exact element coordinates are unavailable, highlight the nearest structural container and indicate that the report is container-level
+
+Preview route requirements
+Create a route pattern such as:
+- /admin/issues/:issueId/preview
+
+This route must be:
+- admin or authorized support only
+- read-only
+- excluded from indexing
+- excluded from standard user navigation
+
+==================================================
+PART 3: USER LOGIN SYSTEM
+==================================================
+
+Add a proper login page and authentication flow.
+
+Create:
+- /login
+- /logout
+
+Do not remove existing session security.
+Extend it.
+
+Requirements:
+- username/email + password login
+- secure password hashing using a modern password hashing function such as Argon2id or bcrypt with strong cost settings
+- no plaintext passwords stored anywhere
+- secure session creation after login
+- login rate limiting
+- failed login logging
+- session rotation on login
+- logout invalidates server session
+
+Login UX
+- simple internal-tool login form
+- username or email field
+- password field
+- generic failure message on invalid login
+- no account enumeration
+- remember me is optional and should be disabled by default unless explicitly configured securely
+
+Bootstrap admin requirement
+Do not hard-code credentials in application source.
+Do not embed default credentials in client code.
+Instead:
+
+- implement a bootstrap admin creation mechanism using secure environment variables
+- expected env vars:
+  - BOOTSTRAP_ADMIN_USERNAME
+  - BOOTSTRAP_ADMIN_PASSWORD
+  - BOOTSTRAP_ADMIN_EMAIL optional
+- on first startup, if no admin exists, create the bootstrap admin from env vars
+- once created, mark bootstrap complete so it does not recreate repeatedly
+- if env vars are missing and no admin exists, fail closed with a startup error explaining bootstrap admin is required
+
+For local development only, allow the deployer to set:
+- BOOTSTRAP_ADMIN_USERNAME=admin
+- BOOTSTRAP_ADMIN_PASSWORD=wemineforgold
+
+But do not hard-code these values in source.
+Treat them only as example environment values.
+
+==================================================
+PART 4: ADMIN AREA FOR USER MANAGEMENT
+==================================================
+
+Create or extend an admin area for user account and permission management.
+
+Admin route examples:
+- /admin
+- /admin/users
+- /admin/users/:userId
+- /admin/issues
+- /admin/security-spec
+
+Only authorized admin roles may access these routes.
+
+User management requirements
+Admin can:
+- view users
+- create users
+- deactivate users
+- reactivate users
+- reset passwords
+- assign roles
+- remove roles within allowed rules
+- view basic account status
+- view last login timestamp
+- view account creation timestamp
+
+Do not allow admins to view existing user passwords.
+Passwords must only be reset, never revealed.
+
+Minimum roles
+- recruiter
+- hr_admin
+- system_admin
+
+Permission model
+recruiter:
+- can log in
+- can create/edit offer sessions they are authorized to access
+- can generate documents
+- can report issues
+- can view their own issue reports or those explicitly allowed
+
+hr_admin:
+- all recruiter permissions
+- manage default template profiles
+- manage clause variants
+- manage letterheads
+- review issue reports
+- view user list
+
+system_admin:
+- all hr_admin permissions
+- create/edit/deactivate users
+- assign permissions
+- manage retention/security settings
+- view telemetry records
+- view operational logs
+- access technical security spec
+
+Authorization requirements
+- enforce all role checks server-side
+- do not rely on hidden buttons alone
+- unauthorized admin route access must return denied response
+- log authorization failures
+
+==================================================
+PART 5: ISSUE MANAGEMENT ADMIN UX
+==================================================
+
+Add an admin issue management page.
+
+Route:
+- /admin/issues
+
+Features:
+- list telemetry issue records
+- filter by:
+  - user
+  - date range
+  - page/route
+  - component
+  - scenario
+  - status
+- statuses:
+  - new
+  - triaged
+  - in_progress
+  - resolved
+  - dismissed
+
+Each issue entry should show:
+- plain-English summary
+- reporting user
+- timestamp
+- page/section
+- preview link
+- current status
+
+Issue detail page should show:
+- full plain-English issue report
+- structural metadata
+- read-only preview link
+- admin notes
+- status control
+- assignment field optional
+- linked route/component metadata
+
+Do not allow editing of the original telemetry report content after submission.
+Allow admin notes as a separate append-only field or controlled comment history.
+
+==================================================
+PART 6: SECURITY + PRIVACY REQUIREMENTS FOR THESE ADDITIONS
+==================================================
+
+These new features must inherit and extend the existing hardening.
+
+Apply all of the following:
+
+A. AUTH
+- passwords hashed with Argon2id preferred, bcrypt acceptable if Argon2 unavailable
+- secure session cookies
+- CSRF on mutating auth/admin routes
+- login rate limiting
+- failed login telemetry to security/audit logs
+
+B. TELEMETRY DATA MINIMIZATION
+- no raw field values in issue reports
+- no screenshots with live candidate data
+- no real populated form state in issue preview
+- preview must always use sanitized shell rendering
+
+C. RBAC
+- issue reporting available only to authenticated authorized users
+- issue previews restricted to admin/support roles as configured
+- admin user management restricted to system_admin
+
+D. AUDIT TRAIL
+Log:
+- login success
+- login failure
+- logout
+- user created
+- user deactivated
+- password reset
+- role changed
+- issue reported
+- issue status changed
+- issue preview viewed by admin
+
+Do not put raw passwords, sensitive form values, or live candidate data in logs.
+
+E. RETENTION
+Add retention config for:
+- telemetry records
+- preview artifacts
+- auth logs related to login attempts
+- admin user action logs
+
+F. SAFE ERROR HANDLING
+- generic login failure messages
+- no exposure of whether username exists
+- no exposure of internal route rules
+- no raw stack traces in admin UI
+
+==================================================
+PART 7: IMPLEMENTATION STRUCTURE
+==================================================
+
+Add or extend modules similar to:
+
+- /lib/security/auth.ts
+- /lib/security/passwords.ts
+- /lib/security/rbac.ts
+- /lib/security/session.ts
+- /lib/security/csrf.ts
+- /lib/telemetry/issues.ts
+- /lib/telemetry/preview.ts
+- /lib/telemetry/schema.ts
+- /app/login/page.tsx
+- /app/admin/page.tsx
+- /app/admin/users/page.tsx
+- /app/admin/issues/page.tsx
+- /app/admin/issues/[issueId]/page.tsx
+- /app/admin/issues/[issueId]/preview/page.tsx
+
+If equivalent modules already exist, extend them rather than duplicating them.
+
+==================================================
+PART 8: UI INTEGRATION RULES
+==================================================
+
+This is additive only. Preserve the existing app UI.
+
+Add:
+- login page
+- logout action
+- admin navigation for authorized users
+- report issue mode in main app
+- issue-report form modal or panel
+- issue preview modal/page for admins
+- users admin page
+- issues admin page
+
+Do not redesign the core app.
+Do not break existing offer workflow.
+Do not replace the current form system.
+
+==================================================
+PART 9: STARTUP / BOOTSTRAP RULES
+==================================================
+
+On app startup:
+1. check required auth/security env vars
+2. check whether at least one system_admin exists
+3. if none exists, require bootstrap admin creation from env vars
+4. fail closed if bootstrap admin is required but env vars are missing
+
+Required env vars for bootstrap:
+- BOOTSTRAP_ADMIN_USERNAME
+- BOOTSTRAP_ADMIN_PASSWORD
+Optional:
+- BOOTSTRAP_ADMIN_EMAIL
+
+Never expose these in client-rendered code.
+Never seed them visibly into the frontend.
+
+==================================================
+PART 10: OUTPUT AFTER IMPLEMENTATION
+==================================================
+
+After applying these additive changes, summarize:
+
+1. what new routes were added
+2. what new tables/files/storage structures were added
+3. how issue telemetry works
+4. how shell previews are generated
+5. how login/bootstrap admin works
+6. what permissions each role has
+7. any remaining TODOs or security caveats

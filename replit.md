@@ -31,7 +31,8 @@ artifacts-monorepo/
 │   └── db/                 # Drizzle ORM schema + DB connection
 │       └── src/schema/
 │           ├── templates.ts   # template_profiles table
-│           └── offers.ts      # offer_drafts table
+│           ├── offers.ts      # offer_drafts table
+│           └── auth.ts        # users, sessions, telemetry_issues, issue_snapshots, admin_notes
 ├── scripts/                # Utility scripts
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
@@ -84,17 +85,56 @@ artifacts-monorepo/
 ### Claude Execution Payload
 - "Copy Claude Payload" button generates structured JSON with scenario, candidate, resolvedFields, removedFields, clauses, attachments, letterhead, exportNotes
 
+## Auth System
+
+- **Session auth**: httpOnly cookie `kol_session` — 8h TTL, SHA-256 token hash stored in DB
+- **Password hashing**: bcryptjs, cost factor 12
+- **Bootstrap admin**: Set `BOOTSTRAP_ADMIN_USERNAME` + `BOOTSTRAP_ADMIN_PASSWORD` (dev: `admin` / `wemineforgold!23`)
+- **RBAC roles**: `recruiter` → `hr_admin` → `system_admin` (hierarchical)
+- **Rate limiting on login**: 5 attempts / 15 min per IP
+- **Audit trail**: LOGIN_SUCCESS, LOGIN_FAILURE, LOGOUT, USER_CREATED, USER_DEACTIVATED, PASSWORD_RESET, ISSUE_REPORTED, etc.
+
+## Frontend Routes
+
+- `/login` — login page (unauthenticated)
+- `/` — offer editor (requires recruiter+)
+- `/admin` — admin dashboard (requires hr_admin+)
+- `/admin/users` — user management (requires system_admin)
+- `/admin/issues` — issue list (requires hr_admin+)
+- `/admin/issues/:id` — issue detail (requires hr_admin+)
+- `/admin/issues/:id/preview` — read-only structural preview (requires hr_admin+)
+- `/security` — security policy (public)
+
 ## API Endpoints
 
 - `GET/POST /api/templates` — template profiles CRUD
 - `GET/PUT/DELETE /api/templates/:id`
 - `GET/POST /api/offers` — offer draft CRUD
 - `GET/PUT/DELETE /api/offers/:id`
+- `POST /api/auth/login` — login (rate limited)
+- `POST /api/auth/logout` — logout
+- `GET /api/auth/me` — current user
+- `GET/POST /api/admin/users` — user management (system_admin)
+- `PUT /api/admin/users/:id` — update user
+- `POST /api/admin/users/:id/reset-password` — reset password
+- `DELETE /api/admin/users/:id` — deactivate user
+- `GET /api/admin/issues` — list issues (hr_admin+)
+- `GET /api/admin/issues/:id` — issue detail + notes + snapshot
+- `GET /api/admin/issues/:id/preview` — structural snapshot
+- `PUT /api/admin/issues/:id/status` — update status
+- `POST /api/admin/issues/:id/notes` — append note
+- `POST /api/telemetry/issues` — report issue (recruiter+)
+- `GET /api/telemetry/issues` — own issues (recruiter+)
 
 ## Database Tables
 
 - `template_profiles` — saved template configurations
 - `offer_drafts` — saved form state / drafts
+- `users` — user accounts (bcrypt password hash, role, active status)
+- `sessions` — server-side sessions (token hash, expiry, user agent)
+- `telemetry_issues` — user-reported issues with structural metadata
+- `issue_snapshots` — sanitized structural page snapshots (no candidate data)
+- `admin_notes` — append-only admin notes on issues
 
 ## TypeScript & Composite Projects
 

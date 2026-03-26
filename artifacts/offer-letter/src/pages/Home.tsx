@@ -5,6 +5,7 @@ import { ResumeUpload } from '@/components/offer-letter/ResumeUpload';
 import { LetterPreview } from '@/components/offer-letter/LetterPreview';
 import { FieldWrapper } from '@/components/offer-letter/FieldWrapper';
 import { NormalizationPreview } from '@/components/offer-letter/NormalizationPreview';
+import { ReportIssuePanel } from '@/components/offer-letter/ReportIssuePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -13,16 +14,20 @@ import { useListTemplates, useCreateOffer } from '@workspace/api-client-react';
 import { format } from 'date-fns';
 import {
   Briefcase, Building2, Calendar, CheckCircle, ChevronRight, FileCheck, FileText, 
-  MapPin, Settings2, User, Wallet, Save, Download, FileJson, AlertCircle, Shield, LogOut
+  MapPin, Settings2, User, Wallet, Save, Download, FileJson, AlertCircle, Shield, LogOut,
+  AlertTriangle, LayoutDashboard
 } from 'lucide-react';
 import * as Accordion from '@radix-ui/react-accordion';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 function OfferEditor() {
   const { state, dispatch } = useOfferStore();
   const { toast } = useToast();
+  const { user, logout, hasRole, isAdmin } = useAuth();
   const { data: templatesData } = useListTemplates();
   const createOfferMutation = useCreateOffer();
+  const [reportIssueOpen, setReportIssueOpen] = useState(false);
 
   const handleCopyPayload = () => {
     const payload = JSON.stringify(state, null, 2);
@@ -93,13 +98,29 @@ function OfferEditor() {
         </div>
 
         {/* Footer */}
-        <div className="border-t p-3 mt-auto">
+        <div className="border-t p-3 mt-auto space-y-0.5">
+          {user && (
+            <div className="px-1.5 py-1 text-xs text-muted-foreground mb-1">
+              <span className="font-medium text-foreground">{user.username}</span>{' '}
+              <span className="capitalize">{user.role.replace('_', ' ')}</span>
+            </div>
+          )}
+          {isAdmin && (
+            <Link href="/admin" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <LayoutDashboard className="w-3.5 h-3.5" /> Admin Panel
+            </Link>
+          )}
           <Link href="/security" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
             <Shield className="w-3.5 h-3.5" /> Security & Privacy Policy
           </Link>
-          <Link href="/admin/security-spec" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1">
-            <Shield className="w-3.5 h-3.5" /> Admin: Security Spec
-          </Link>
+          {user && (
+            <button
+              onClick={() => logout()}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors w-full"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Sign out
+            </button>
+          )}
         </div>
       </div>
 
@@ -122,6 +143,17 @@ function OfferEditor() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {user && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                onClick={() => setReportIssueOpen(true)}
+                title="Report a UI or document issue"
+              >
+                <AlertTriangle className="w-4 h-4 mr-2" /> Report Issue
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -373,6 +405,14 @@ function OfferEditor() {
           <LetterPreview />
         </div>
       </div>
+
+      {/* Report Issue Panel */}
+      {reportIssueOpen && (
+        <ReportIssuePanel
+          onClose={() => setReportIssueOpen(false)}
+          selectedElement={null}
+        />
+      )}
     </div>
   );
 }
