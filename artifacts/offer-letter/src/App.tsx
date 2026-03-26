@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/Login";
+import Setup from "@/pages/Setup";
 import SecurityPolicy from "@/pages/SecurityPolicy";
 import AdminSecuritySpec from "@/pages/AdminSecuritySpec";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
@@ -22,8 +23,9 @@ function RequireAuth({ children, minRole }: {
   children: React.ReactNode;
   minRole?: "recruiter" | "hr_admin" | "system_admin";
 }) {
-  const { user, loading, hasRole } = useAuth();
+  const { user, loading, hasRole, needsSetup } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">Loading…</div>;
+  if (needsSetup) return <Redirect to="/setup" />;
   if (!user) return <Redirect to="/login" />;
   if (minRole && !hasRole(minRole)) return <div className="min-h-screen flex items-center justify-center text-destructive text-sm">Access denied — insufficient permissions.</div>;
   return <>{children}</>;
@@ -32,6 +34,7 @@ function RequireAuth({ children, minRole }: {
 function Router() {
   return (
     <Switch>
+      <Route path="/setup" component={Setup} />
       <Route path="/login" component={Login} />
       <Route path="/security" component={SecurityPolicy} />
 

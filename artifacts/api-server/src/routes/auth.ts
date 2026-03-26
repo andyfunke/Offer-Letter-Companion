@@ -2,8 +2,8 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { db, usersTable } from "@workspace/db";
-import { eq, or } from "drizzle-orm";
-import { verifyPassword } from "../lib/passwords";
+import { eq, or, count } from "drizzle-orm";
+import { verifyPassword, hashPassword } from "../lib/passwords";
 import { createSession, destroySession, COOKIE_NAME, SESSION_TTL_MS } from "../lib/session";
 import { auditEvent } from "../middleware/audit";
 import { requireAuth } from "../middleware/auth-guard";
@@ -135,6 +135,75 @@ router.get("/me", (req, res) => {
     role: req.user.role,
     email: req.user.email,
   });
+});
+
+// ── Setup endpoints (first-run only) ─────────────────────────────────────
+
+// GET /api/auth/setup-status — public, returns whether initial setup is needed
+router.get("/setup-status", async (_req, res) => {
+  try {
+    const [{ value }] = await db.select({ value: count() }).from(usersTable);
+    res.json({ needsSetup: value === 0 });
+  } catch (err) {
+    res.status(500).json({ error: "Could not check setup status." });
+  }
+});
+
+const setupSchema = z.object({
+  username: z.string().min(2).max(60).regex(/^[a-zA-Z0-9_.-]+$/, "Username may only contain letters, numbers, _ . -"),
+  password: z.string().min(12).max(256),
+  email: z.string().email().optional(),
+});
+
+// POST /api/auth/setup — creates the first system_admin; rejected if any user exists
+router.post("/setup", async (req, res) => {
+  try {
+    // Guard: only works when zero users exist
+    const [{ value }] = await db.select({ value: count() }).from(usersTable);
+    if (value > 0) {
+      res.status(409).json({ error: "Setup already complete. Please log in." });
+      return;
+    }
+
+    const body = setupSchema.parse(req.body);
+    const passwordHash = await hashPassword(body.password);
+
+    const [user] = await db.insert(usersTable).values({
+      username: body.username,
+      email: body.email ?? null,
+      passwordHash,
+      role: "system_admin",
+      isActive: true,
+      isBootstrapAdmin: true,
+    }).returning();
+
+    auditEvent("SETUP_COMPLETE", { username: body.username });
+
+    // Auto-login after setup
+    const rawToken = await createSession(user!.id, req.ip, req.headers["user-agent"]);
+    await db.update(usersTable).set({ lastLoginAt: new Date() }).where(eq(usersTable.id, user!.id));
+
+    res.cookie(COOKIE_NAME, rawToken, {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: process.env["NODE_ENV"] === "production",
+      maxAge: SESSION_TTL_MS,
+      path: "/",
+    });
+
+    res.status(201).json({
+      id: user!.id,
+      username: user!.username,
+      role: user!.role,
+      email: user!.email,
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: err.issues[0]?.message ?? "Invalid input." });
+      return;
+    }
+    res.status(500).json({ error: "Setup failed. Please try again." });
+  }
 });
 
 export default router;

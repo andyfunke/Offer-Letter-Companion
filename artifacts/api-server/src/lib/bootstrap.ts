@@ -1,38 +1,39 @@
 import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 import { hashPassword } from "./passwords";
 import { logger } from "./logger";
 
 export async function bootstrapAdmin(): Promise<void> {
-  // Check whether any system_admin exists
-  const existing = await db
-    .select({ id: usersTable.id })
-    .from(usersTable)
-    .where(eq(usersTable.role, "system_admin"))
-    .limit(1);
+  // Check whether any user exists at all
+  const [{ value: userCount }] = await db
+    .select({ value: count() })
+    .from(usersTable);
 
-  if (existing.length > 0) {
-    logger.debug("Bootstrap: system_admin already exists — skipping.");
+  if (userCount > 0) {
+    logger.debug("Bootstrap: users already exist — skipping env-var bootstrap.");
     return;
   }
 
-  // No admin exists — require env vars
+  // No users at all — check if env vars are provided for automated bootstrap
   const username = process.env["BOOTSTRAP_ADMIN_USERNAME"];
   const password = process.env["BOOTSTRAP_ADMIN_PASSWORD"];
   const email = process.env["BOOTSTRAP_ADMIN_EMAIL"];
 
   if (!username || !password) {
-    throw new Error(
-      "[BOOTSTRAP] No system_admin exists and BOOTSTRAP_ADMIN_USERNAME / " +
-        "BOOTSTRAP_ADMIN_PASSWORD are not set. " +
-        "Set these environment variables and restart the server.",
+    // No env vars — that's fine; the in-app setup screen will handle it
+    logger.info(
+      "Bootstrap: no users exist and no BOOTSTRAP_ADMIN env vars set. " +
+        "The in-app setup wizard will create the first account.",
     );
+    return;
   }
 
   if (password.length < 12) {
-    throw new Error(
-      "[BOOTSTRAP] BOOTSTRAP_ADMIN_PASSWORD must be at least 12 characters.",
+    logger.warn(
+      "[BOOTSTRAP] BOOTSTRAP_ADMIN_PASSWORD is shorter than 12 characters — skipping env-var bootstrap. " +
+        "Use the in-app setup screen instead.",
     );
+    return;
   }
 
   const passwordHash = await hashPassword(password);
@@ -48,6 +49,6 @@ export async function bootstrapAdmin(): Promise<void> {
 
   logger.info(
     { username },
-    "Bootstrap: created initial system_admin account.",
+    "Bootstrap: created initial system_admin account from environment variables.",
   );
 }

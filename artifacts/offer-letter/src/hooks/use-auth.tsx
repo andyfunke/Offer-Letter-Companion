@@ -10,11 +10,13 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   loading: boolean;
+  needsSetup: boolean;
 }
 
 interface AuthContextValue extends AuthState {
   login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
+  completeSetup: (user: AuthUser) => void;
   hasRole: (minRole: 'recruiter' | 'hr_admin' | 'system_admin') => boolean;
   isAdmin: boolean;
 }
@@ -23,20 +25,28 @@ const ROLE_RANK = { recruiter: 1, hr_admin: 2, system_admin: 3 } as const;
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function apiBase() {
-  // Prefix relative to the app's base path
+export function apiBase() {
   const base = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
   return `${base}/../api`.replace('//', '/');
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({ user: null, loading: true });
+  const [state, setState] = useState<AuthState>({ user: null, loading: true, needsSetup: false });
 
   useEffect(() => {
-    fetch(`${apiBase()}/auth/me`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => setState({ user: data ?? null, loading: false }))
-      .catch(() => setState({ user: null, loading: false }));
+    // Check both setup status and current session in parallel
+    Promise.all([
+      fetch(`${apiBase()}/auth/setup-status`).then(r => r.ok ? r.json() : { needsSetup: false }),
+      fetch(`${apiBase()}/auth/me`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([setup, me]) => {
+      setState({
+        user: me ?? null,
+        loading: false,
+        needsSetup: setup.needsSetup ?? false,
+      });
+    }).catch(() => {
+      setState({ user: null, loading: false, needsSetup: false });
+    });
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
@@ -49,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (r.ok) {
         const user = await r.json();
-        setState({ user, loading: false });
+        setState(s => ({ ...s, user, loading: false, needsSetup: false }));
         return { ok: true };
       }
       const err = await r.json().catch(() => ({ error: 'Login failed.' }));
@@ -61,7 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await fetch(`${apiBase()}/auth/logout`, { method: 'POST', credentials: 'include' });
-    setState({ user: null, loading: false });
+    setState(s => ({ ...s, user: null, loading: false }));
+  }, []);
+
+  // Called from the setup page after the API creates the first admin and auto-logs them in
+  const completeSetup = useCallback((user: AuthUser) => {
+    setState({ user, loading: false, needsSetup: false });
   }, []);
 
   const hasRole = useCallback((minRole: 'recruiter' | 'hr_admin' | 'system_admin') => {
@@ -74,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...state,
       login,
       logout,
+      completeSetup,
       hasRole,
       isAdmin: state.user ? ROLE_RANK[state.user.role] >= ROLE_RANK.hr_admin : false,
     }}>
