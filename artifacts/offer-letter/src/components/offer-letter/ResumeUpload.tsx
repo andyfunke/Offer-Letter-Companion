@@ -80,10 +80,12 @@ function parseResumeText(text: string) {
     }
   }
 
-  // Location: look for city/state patterns
+  // Location: look for city/state patterns.
+  // NOTE: use [a-zA-Z ]+ (space only, NOT \s) so the match cannot cross a line break
+  // and accidentally absorb the candidate's name from the previous line.
   const locationPatterns = [
-    /\b([A-Z][a-zA-Z\s]+),\s*(BC|AB|ON|QC|SK|MB|NS|NB|PE|NL|YT|NT|NU)\b/,   // Canadian province
-    /\b([A-Z][a-zA-Z\s]+),\s*(WA|OR|CA|AZ|TX|NY|FL|CO|NV|ID|MT|UT|GA|NC|VA|PA|OH|MI|IL|MN|MO|TN|AL|LA|AR|KY|IN|WI|IA|OK|KS|NE|SD|ND|WY|NM|AK|HI|DE|MD|DC|CT|RI|VT|NH|ME|WV|MS)\b/i,  // US state abbrev
+    /\b([A-Z][a-zA-Z ]+),[ \t]*(BC|AB|ON|QC|SK|MB|NS|NB|PE|NL|YT|NT|NU)\b/,   // Canadian province
+    /\b([A-Z][a-zA-Z ]+),[ \t]*(WA|OR|CA|AZ|TX|NY|FL|CO|NV|ID|MT|UT|GA|NC|VA|PA|OH|MI|IL|MN|MO|TN|AL|LA|AR|KY|IN|WI|IA|OK|KS|NE|SD|ND|WY|NM|AK|HI|DE|MD|DC|CT|RI|VT|NH|ME|WV|MS)\b/i,  // US state abbrev
   ];
   let location = '';
   let isCanada = false;
