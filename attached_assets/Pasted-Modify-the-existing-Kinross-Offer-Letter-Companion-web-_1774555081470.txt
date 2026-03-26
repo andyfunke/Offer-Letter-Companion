@@ -1,0 +1,912 @@
+Modify the existing Kinross Offer Letter Companion web app.
+
+This is a targeted additive correction.
+Do not redesign the app.
+Do not rewrite the scenario engine.
+Do not paraphrase clause text.
+Do not summarize source offer letters into “equivalent” language.
+Do not normalize wording except through explicit token substitution.
+
+==================================================
+PRIMARY CORRECTION
+==================================================
+
+The app is currently paraphrasing source offer-letter language.
+That behavior must stop.
+
+From now on, the clause library must store and render the exact source language from the approved offer-letter templates.
+The app may only do three things to source language:
+
+1. store it exactly
+2. replace variable placeholders with token placeholders
+3. suppress clauses that are not applicable
+
+No other rewriting is allowed.
+
+==================================================
+SOURCE OF TRUTH RULE
+==================================================
+
+The uploaded offer-letter files are the source of truth for clause text.
+
+For each supported scenario, create clause records whose text is copied exactly from the relevant source template.
+Do not “improve” wording.
+Do not shorten.
+Do not modernize punctuation.
+Do not merge nearby clauses unless they are already one paragraph in the source.
+Do not remove repeated phrasing if it appears in the source.
+
+If the source template contains editorial comments such as “Round Mountain only” or “Comment by Chelly Koeppen”, store those comments separately as metadata flags or implementation notes.
+Do not render those comments in the final offer letter unless the business explicitly wants them shown.
+The displayed clause text must be the actual letter language only.
+
+==================================================
+CLAUSE STORAGE MODEL
+==================================================
+
+For every clause record in the clause library, store:
+
+- clause_id
+- scenario
+- clause_number_source
+- clause_title_internal
+- exact_source_text
+- tokenized_text
+- source_file_name
+- source_file_reference
+- applicability_rule
+- optional_flag
+- source_comments_internal
+- render_default
+- sort_order
+
+Rules:
+- exact_source_text must be the verbatim paragraph from the source file
+- tokenized_text must be the same exact text with only placeholders converted into app tokens
+- tokenized_text must preserve all non-placeholder wording exactly
+- source_comments_internal stores comments/instructions from the template but does not render to end users
+- final rendering must come from tokenized_text, not paraphrase logic
+
+==================================================
+TOKENIZATION RULE
+==================================================
+
+Allowed tokenization examples:
+- [Date] -> {{DATE}}
+- [Employee Name] -> {{EMPLOYEE_NAME}}
+- INSERT DATE -> {{START_DATE}}
+- INSERT JOB TITLE -> {{JOB_TITLE}}
+- INSERT SITE SUBSIDIARY NAME -> {{SITE_SUBSIDIARY_NAME}}
+- INSERT SITE LOCATION -> {{SITE_LOCATION}}
+- INSERT HR CONTACT -> {{HR_CONTACT}}
+- INSERT STATE -> {{GOVERNING_STATE}}
+- XX hours -> {{PTO_HOURS}} hours
+- US $XX.XX/hour -> US ${{HOURLY_RATE}}/hour
+- $XX,000.00 ($X,000.00 bi-weekly) -> ${{ANNUAL_SALARY}} (${{BIWEEKLY_PAY}} bi-weekly)
+
+Do not alter any non-placeholder text during tokenization.
+
+==================================================
+SUPPORTED SOURCE TEMPLATES
+==================================================
+
+Use these files as source text authorities for their scenarios:
+
+- 2026 Kinross Offer Letter Template Hourly FINAL w.ESPP edit.docx
+- 2026 Offer Letter Template Salaried FINAL.docx
+- 2026 Kinross Offer Letter Template Salaried Fixed Term Assignment - external candidate w.ESPP edit FINAL.docx
+- 2026 Kinross Offer Letter Intern FINAL.docx
+- Kinross Offer Letter hourly role change FINAL.docx
+- Kinross Offer Letter hourly to salary promotion FINAL.docx
+- Offer Letter site to site transfer_Salary FINAL.docx
+
+Do not infer unsupported scenarios from nearby ones.
+
+==================================================
+INSERT THE FOLLOWING EXACT CLAUSE TEXT
+==================================================
+
+Create or replace the following clause records in the app.
+
+------------------------------------------
+SCENARIO: new_hire_hourly
+SOURCE FILE:
+2026 Kinross Offer Letter Template Hourly FINAL w.ESPP edit.docx
+------------------------------------------
+
+HEADER_OPENING
+exact_source_text:
+Further to our discussions, I am pleased to extend to you an offer of employment in the capacity of Position/Step with INSERT SITE SUBSIDIARY NAME (the “Company”), an independently operated wholly-owned subsidiary of Kinross Gold U.S.A., Inc. (“Kinross”), commencing on INSERT DATE. This position is based out of INSERT SITE LOCATION and reports to the INSERT JOB TITLE.
+
+tokenized_text:
+Further to our discussions, I am pleased to extend to you an offer of employment in the capacity of {{POSITION_STEP}} with {{SITE_SUBSIDIARY_NAME}} (the “Company”), an independently operated wholly-owned subsidiary of Kinross Gold U.S.A., Inc. (“Kinross”), commencing on {{START_DATE}}. This position is based out of {{SITE_LOCATION}} and reports to the {{REPORTS_TO_TITLE}}.
+
+CLAUSE_1
+exact_source_text:
+Your starting hourly wage will be US $XX.XX/hour less applicable statutory and legally mandated withholdings.
+
+tokenized_text:
+Your starting hourly wage will be US ${{HOURLY_RATE}}/hour less applicable statutory and legally mandated withholdings.
+
+CLAUSE_2_GEO
+exact_source_text:
+You will be eligible to participate in SITE’s Geographic Pay Allowance policy according to its terms, which the company may amend at its sole discretion from time-to-time.  This benefit currently pays X% of a non-exempt employee’s straight time and overtime earnings each payday based on the SITE’S geographic area.  You will be eligible for this allowance on the first day of the month following your hire date.  This allowance is subject to applicable statutory deductions and withholdings and will be reported on the employee’s W2.
+
+tokenized_text:
+You will be eligible to participate in {{SITE_NAME}}’s Geographic Pay Allowance policy according to its terms, which the company may amend at its sole discretion from time-to-time.  This benefit currently pays {{GEO_PAY_PERCENT}}% of a non-exempt employee’s straight time and overtime earnings each payday based on the {{SITE_NAME}}’s geographic area.  You will be eligible for this allowance on the first day of the month following your hire date.  This allowance is subject to applicable statutory deductions and withholdings and will be reported on the employee’s W2.
+
+source_comments_internal:
+Round Mountain and Alaska sites
+
+CLAUSE_3_HOURLY_BONUS
+exact_source_text:
+You will be eligible to participate in the Company’s hourly bonus program effective on your date of hire.  The hourly bonus is based on the site’s attainment of Safety, Environmental, Production and Cost metrics.  Bonuses are typically paid on the second pay day following the end of each quarter.  Bonus payments are not guaranteed in any particular year(s) or from year to year.  The hourly bonus program can be modified at the Company’s discretion.
+
+tokenized_text:
+You will be eligible to participate in the Company’s hourly bonus program effective on your date of hire.  The hourly bonus is based on the site’s attainment of Safety, Environmental, Production and Cost metrics.  Bonuses are typically paid on the second pay day following the end of each quarter.  Bonus payments are not guaranteed in any particular year(s) or from year to year.  The hourly bonus program can be modified at the Company’s discretion.
+
+CLAUSE_4_PTO
+exact_source_text:
+Annual Paid Time Off (PTO) will be a maximum of XX hours per year (accrued per pay period), to be taken at a time which is agreeable to both you and the Company, subject to the Company's PTO policy. PTO earned in your first calendar year of employment is prorated based on your start date. You will also be eligible for 10 paid holidays each calendar year.
+
+tokenized_text:
+Annual Paid Time Off (PTO) will be a maximum of {{PTO_HOURS}} hours per year (accrued per pay period), to be taken at a time which is agreeable to both you and the Company, subject to the Company's PTO policy. PTO earned in your first calendar year of employment is prorated based on your start date. You will also be eligible for 10 paid holidays each calendar year.
+
+source_comments_internal:
+Nevada, Kettle River and KGUSA sites
+
+CLAUSE_5_PRIOR_SERVICE
+exact_source_text:
+We recognize your previous service with other Kinross entities.  As such, your service date will be recognized as XX/XX/20XX.
+
+tokenized_text:
+We recognize your previous service with other Kinross entities.  As such, your service date will be recognized as {{RECOGNIZED_SERVICE_DATE}}.
+
+CLAUSE_6_BENEFITS
+exact_source_text:
+You will be eligible to participate in the Company’s comprehensive benefit program according to its terms and conditions. Generally, eligibility begins on the first of the month following hire.  A summary of these benefits is attached to this letter. Full details of these benefits, including medical, dental, vision, life and disability insurance, will be provided to you on commencement of employment.  Kinross reviews its employee benefit plans and programs periodically and all are subject to change or termination.
+
+tokenized_text:
+You will be eligible to participate in the Company’s comprehensive benefit program according to its terms and conditions. Generally, eligibility begins on the first of the month following hire.  A summary of these benefits is attached to this letter. Full details of these benefits, including medical, dental, vision, life and disability insurance, will be provided to you on commencement of employment.  Kinross reviews its employee benefit plans and programs periodically and all are subject to change or termination.
+
+CLAUSE_7_RETIREMENT
+exact_source_text:
+You will be eligible to participate in the Kinross Gold Retirement Plan (a 401(k) plan) according to its terms and conditions generally summarized as follows. The first of the month following hire date, you will be automatically enrolled to defer 3% of your eligible pay as pre-tax contributions. You may change your deferral rate at any time.  The first of the month following hire date, Kinross will match 100% of your deferral contributions limited to 6% of your eligible pay per pay period. The first of the month following the completion of six (6) months of employment, Kinross will make additional contributions equal to 4% of your eligible pay per pay period.
+
+tokenized_text:
+You will be eligible to participate in the Kinross Gold Retirement Plan (a 401(k) plan) according to its terms and conditions generally summarized as follows. The first of the month following hire date, you will be automatically enrolled to defer 3% of your eligible pay as pre-tax contributions. You may change your deferral rate at any time.  The first of the month following hire date, Kinross will match 100% of your deferral contributions limited to 6% of your eligible pay per pay period. The first of the month following the completion of six (6) months of employment, Kinross will make additional contributions equal to 4% of your eligible pay per pay period.
+
+CLAUSE_8_ESPP_SHAREWORKS
+exact_source_text:
+You will be eligible to participate in the Kinross Employee Share Purchase Plan upon your first day of employment, according to its terms and conditions. This plan allows you to contribute up to 10% of your base salary to purchase Kinross common stock and receive a 50% match from Kinross. Participation in the plan, and any change to contribution levels, should be made online through your Shareworks account and will become effective on the first day of the quarter following 60 days’ notice.
+
+tokenized_text:
+You will be eligible to participate in the Kinross Employee Share Purchase Plan upon your first day of employment, according to its terms and conditions. This plan allows you to contribute up to 10% of your base salary to purchase Kinross common stock and receive a 50% match from Kinross. Participation in the plan, and any change to contribution levels, should be made online through your Shareworks account and will become effective on the first day of the quarter following 60 days’ notice.
+
+CLAUSE_9_RELOCATION
+exact_source_text:
+You are eligible for reasonable and customary relocation benefits from your residence in City/State to site/State as outlined in Kinross Gold Corporation’s Relocation Policy, which is included with this offer letter.  Should you accept this offer, the relocation repayment agreement, attached, must also be completed, and returned to me.
+
+tokenized_text:
+You are eligible for reasonable and customary relocation benefits from your residence in {{RELOCATION_ORIGIN}} to {{RELOCATION_DESTINATION}} as outlined in Kinross Gold Corporation’s Relocation Policy, which is included with this offer letter.  Should you accept this offer, the relocation repayment agreement, attached, must also be completed, and returned to me.
+
+CLAUSE_10_POLICIES
+exact_source_text:
+You will be subject to and must comply with the employment policies, practices and rules of the Company, including but not limited to the Kinross Code of Business Conduct and Ethics, a copy of which will be sent to you under separate cover. While other independently operated subsidiaries of Kinross Gold U.S.A., Inc. may utilize common policies, you acknowledge your employment is with the Company and no other entity.
+
+tokenized_text:
+You will be subject to and must comply with the employment policies, practices and rules of the Company, including but not limited to the Kinross Code of Business Conduct and Ethics, a copy of which will be sent to you under separate cover. While other independently operated subsidiaries of Kinross Gold U.S.A., Inc. may utilize common policies, you acknowledge your employment is with the Company and no other entity.
+
+CLAUSE_11_CONFIDENTIALITY
+exact_source_text:
+You agree not to use for your own account or disclose to anyone else, during or after the term of your employment, any confidential or proprietary information or material relating to the Company’s operations or business (that is not otherwise available in the public domain) which you obtain from the Company or its officers, employees, or agents by virtue of your employment with the Company.
+
+tokenized_text:
+You agree not to use for your own account or disclose to anyone else, during or after the term of your employment, any confidential or proprietary information or material relating to the Company’s operations or business (that is not otherwise available in the public domain) which you obtain from the Company or its officers, employees, or agents by virtue of your employment with the Company.
+
+CLAUSE_12_CONFLICTS
+exact_source_text:
+You will ensure that your personal interests do not conflict with the Company’s interests. You agree to promptly report any potential or actual conflicts of interest to me. A conflict of interest would include, for instance, a financial interest of yours or of a family member in the Company or a competitor.
+
+tokenized_text:
+You will ensure that your personal interests do not conflict with the Company’s interests. You agree to promptly report any potential or actual conflicts of interest to me. A conflict of interest would include, for instance, a financial interest of yours or of a family member in the Company or a competitor.
+
+CLAUSE_13_INVENTIONS
+exact_source_text:
+You will immediately report any inventions, discoveries and innovations relating to the business of the Company made or conceived by you while employed by the Company.  You agree that all of these will be the exclusive property of the Company.  You understand that your agreement to assign all inventions to the Company does not obligate you to assign or offer to assign to the Company any of your rights in an invention for which no equipment, supplies, facilities or trade secret information of the Company was used and which was developed entirely on your own time, unless (a) the invention relates (i) directly to the business of the Company or (ii) to the Company's actual or demonstrably anticipated research or development, or (b) the invention results from any work performed by you for the Company.
+
+tokenized_text:
+You will immediately report any inventions, discoveries and innovations relating to the business of the Company made or conceived by you while employed by the Company.  You agree that all of these will be the exclusive property of the Company.  You understand that your agreement to assign all inventions to the Company does not obligate you to assign or offer to assign to the Company any of your rights in an invention for which no equipment, supplies, facilities or trade secret information of the Company was used and which was developed entirely on your own time, unless (a) the invention relates (i) directly to the business of the Company or (ii) to the Company's actual or demonstrably anticipated research or development, or (b) the invention results from any work performed by you for the Company.
+
+CLAUSE_14_NO_OTHER_OBLIGATIONS
+exact_source_text:
+You represent to the Company that you have no obligations, legal or otherwise, that are inconsistent with the terms of this employment offer, or with your employment obligations to the Company. You represent that you will not, by accepting employment with the Company or by carrying out your employment duties pursuant to this offer, be in breach of any obligations that you owe to any other person or entity.
+
+tokenized_text:
+You represent to the Company that you have no obligations, legal or otherwise, that are inconsistent with the terms of this employment offer, or with your employment obligations to the Company. You represent that you will not, by accepting employment with the Company or by carrying out your employment duties pursuant to this offer, be in breach of any obligations that you owe to any other person or entity.
+
+CLAUSE_15_ENTIRE_AGREEMENT
+exact_source_text:
+You acknowledge that this offer letter does not constitute an employment contract for employment of any particular duration and represents the entire agreement between you and the Company, excepting certificates of compliance and acknowledgements of policies which you shall be required to sign from time to time. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+tokenized_text:
+You acknowledge that this offer letter does not constitute an employment contract for employment of any particular duration and represents the entire agreement between you and the Company, excepting certificates of compliance and acknowledgements of policies which you shall be required to sign from time to time. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+CLAUSE_16_AT_WILL
+exact_source_text:
+In accepting this offer of employment, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice. No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+tokenized_text:
+In accepting this offer of employment, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice. No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+CLAUSE_17_CONTINGENCIES
+exact_source_text:
+This offer is contingent on the successful completion of post-offer, background check, pre-employment physical, and drug screening. Please note that the Company will first conduct the background check and drug screening before you are asked to undertake the pre-employment physical. You will only be asked to undertake a pre-employment physical if you successfully complete the background check and drug screening. The pre-employment physical will be the last pre-employment condition you need to meet. Accordingly, if you receive notification to appear for a physical, that means you have successfully satisfied all other pre-employment contingencies.
+
+tokenized_text:
+This offer is contingent on the successful completion of post-offer, background check, pre-employment physical, and drug screening. Please note that the Company will first conduct the background check and drug screening before you are asked to undertake the pre-employment physical. You will only be asked to undertake a pre-employment physical if you successfully complete the background check and drug screening. The pre-employment physical will be the last pre-employment condition you need to meet. Accordingly, if you receive notification to appear for a physical, that means you have successfully satisfied all other pre-employment contingencies.
+
+CLAUSE_18_WORK_AUTH
+exact_source_text:
+Also, it is required by law that employees show proof of citizenship or legal authorization to work in the United States. Please refer to the attached sheet for further information about this matter and please bring your original document(s) with you on your first day of work.
+
+tokenized_text:
+Also, it is required by law that employees show proof of citizenship or legal authorization to work in the United States. Please refer to the attached sheet for further information about this matter and please bring your original document(s) with you on your first day of work.
+
+CLAUSE_19_GOVERNING_LAW
+exact_source_text:
+This offer of employment is governed by the laws of the State of INSERT STATE, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+tokenized_text:
+This offer of employment is governed by the laws of the State of {{GOVERNING_STATE}}, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+CLOSING_PARAGRAPH
+exact_source_text:
+We believe that this opportunity will offer you a great deal of professional challenge and growth and will be one that you will find personally satisfying.  Please indicate your acceptance of this offer by signing below and returning a copy to INSERT HR CONTACT by DATE.
+
+tokenized_text:
+We believe that this opportunity will offer you a great deal of professional challenge and growth and will be one that you will find personally satisfying.  Please indicate your acceptance of this offer by signing below and returning a copy to {{HR_CONTACT}} by {{ACCEPTANCE_DEADLINE}}.
+
+CLOSING_CONTACT
+exact_source_text:
+Please feel free to contact me at your convenience if you have any questions.  I look forward to working with you and welcome you to the Team!
+
+tokenized_text:
+Please feel free to contact me at your convenience if you have any questions.  I look forward to working with you and welcome you to the Team!
+
+------------------------------------------
+SCENARIO: internship
+SOURCE FILE:
+2026 Kinross Offer Letter Intern FINAL.docx
+------------------------------------------
+
+HEADER_OPENING
+exact_source_text:
+Further to our discussions, I am pleased to extend to you an offer of employment in the capacity of Job Title Intern with INSERT SITE SUBSIDIARY NAME (“the Company”), an independently operated wholly-owned subsidiary of Kinross Gold U.S.A., Inc. (“Kinross”), commencing on INSERT DATE. This position is based out of INSERT SITE LOCATION and reports to the INSERT JOB TITLE.
+
+tokenized_text:
+Further to our discussions, I am pleased to extend to you an offer of employment in the capacity of {{JOB_TITLE_INTERN}} with {{SITE_SUBSIDIARY_NAME}} (“the Company”), an independently operated wholly-owned subsidiary of Kinross Gold U.S.A., Inc. (“Kinross”), commencing on {{START_DATE}}. This position is based out of {{SITE_LOCATION}} and reports to the {{REPORTS_TO_TITLE}}.
+
+CLAUSE_1_TEMPORARY
+exact_source_text:
+This role is classified as a Temporary position.  While there is no guarantee of employment with the Company for any specific term or duration, the maximum period of your employment is XX months.
+
+tokenized_text:
+This role is classified as a Temporary position.  While there is no guarantee of employment with the Company for any specific term or duration, the maximum period of your employment is {{MAX_MONTHS}} months.
+
+CLAUSE_2_HOURLY
+exact_source_text:
+Your starting hourly wage will be US $XX.XX/hour less applicable statutory and legally mandated withholdings.
+
+tokenized_text:
+Your starting hourly wage will be US ${{HOURLY_RATE}}/hour less applicable statutory and legally mandated withholdings.
+
+CLAUSE_3_RETIREMENT
+exact_source_text:
+You will be eligible to participate in the Kinross Retirement Plan (a 401(k) plan) according to its terms and conditions, generally summarized as follows. The first of the month following hire date, you will be automatically enrolled to defer 3% of your eligible pay as pre-tax contributions.  You may change your deferral rate at any time.  The first of the month following hire date, the Company will match 100% of your deferral contributions limited to 6% of your eligible pay per pay period.  The first of the month following the completion of six (6) months of employment, the Company will make additional contributions equal to 4% of your eligible pay per pay period.
+
+tokenized_text:
+You will be eligible to participate in the Kinross Retirement Plan (a 401(k) plan) according to its terms and conditions, generally summarized as follows. The first of the month following hire date, you will be automatically enrolled to defer 3% of your eligible pay as pre-tax contributions.  You may change your deferral rate at any time.  The first of the month following hire date, the Company will match 100% of your deferral contributions limited to 6% of your eligible pay per pay period.  The first of the month following the completion of six (6) months of employment, the Company will make additional contributions equal to 4% of your eligible pay per pay period.
+
+CLAUSE_4_POLICIES
+exact_source_text:
+You will comply with the employment policies, practices and rules of the Company, including but not limited to the Kinross Code of Business Conduct and Ethics, a copy of which will be sent to you under separate cover. While other independently operated subsidiaries of Kinross Gold U.S.A., Inc. may utilize common policies, you acknowledge your employment is with the Company and no other entity.
+
+tokenized_text:
+You will comply with the employment policies, practices and rules of the Company, including but not limited to the Kinross Code of Business Conduct and Ethics, a copy of which will be sent to you under separate cover. While other independently operated subsidiaries of Kinross Gold U.S.A., Inc. may utilize common policies, you acknowledge your employment is with the Company and no other entity.
+
+CLAUSE_5_CONFIDENTIALITY
+exact_source_text:
+You agree not to use for your own account or disclose to anyone else, during or after the term of your employment with the Company, any confidential or proprietary information or material relating to the Company’s operations or business (that is not otherwise available in the public domain) which you obtain from the Company  or its officers or employees, agents by virtue of your employment with the Company.
+
+tokenized_text:
+You agree not to use for your own account or disclose to anyone else, during or after the term of your employment with the Company, any confidential or proprietary information or material relating to the Company’s operations or business (that is not otherwise available in the public domain) which you obtain from the Company  or its officers or employees, agents by virtue of your employment with the Company.
+
+CLAUSE_6_CONFLICTS
+exact_source_text:
+You will ensure that your personal interests do not conflict with the Company’s interests. You agree to promptly report any potential or actual conflicts of interest to me.  A conflict of interest would include, for instance, a financial interest of yours or of a family member in the Company or a competitor.
+
+tokenized_text:
+You will ensure that your personal interests do not conflict with the Company’s interests. You agree to promptly report any potential or actual conflicts of interest to me.  A conflict of interest would include, for instance, a financial interest of yours or of a family member in the Company or a competitor.
+
+CLAUSE_7_INVENTIONS
+exact_source_text:
+You will immediately report any inventions, discoveries and innovations relating to the business of the Company made or conceived by you while employed by the Company.  You agree that all of these will be the exclusive property of the Company.  You understand that your agreement to assign all inventions to the Company does not obligate you to assign or offer to assign to the Company any of your rights in an invention for which no equipment, supplies, facilities or trade secret information of the Company was used and which was developed entirely on your own time, unless (a) the invention relates (i) directly to the business of the Company or (ii) to the Company's actual or demonstrably anticipated research or development, or (b) the invention results from any work performed by you for the Company.
+
+tokenized_text:
+You will immediately report any inventions, discoveries and innovations relating to the business of the Company made or conceived by you while employed by the Company.  You agree that all of these will be the exclusive property of the Company.  You understand that your agreement to assign all inventions to the Company does not obligate you to assign or offer to assign to the Company any of your rights in an invention for which no equipment, supplies, facilities or trade secret information of the Company was used and which was developed entirely on your own time, unless (a) the invention relates (i) directly to the business of the Company or (ii) to the Company's actual or demonstrably anticipated research or development, or (b) the invention results from any work performed by you for the Company.
+
+CLAUSE_8_NO_OTHER_OBLIGATIONS
+exact_source_text:
+You represent that you have no obligations, legal or otherwise, that are inconsistent with the terms of this employment offer, or with your employment obligations to the Company.  You represent that you will not, by accepting employment with the Company or by carrying out your employment duties pursuant to this offer, be in breach of any obligations that you owe to any other person or entity.
+
+tokenized_text:
+You represent that you have no obligations, legal or otherwise, that are inconsistent with the terms of this employment offer, or with your employment obligations to the Company.  You represent that you will not, by accepting employment with the Company or by carrying out your employment duties pursuant to this offer, be in breach of any obligations that you owe to any other person or entity.
+
+CLAUSE_9_ENTIRE_AGREEMENT
+exact_source_text:
+You acknowledge that this offer letter does not constitute an employment contract for employment of any particular duration and represents the entire agreement between you and the Company, excepting certificates of compliance and acknowledgements of policies which you shall be required to sign from time to time. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+tokenized_text:
+You acknowledge that this offer letter does not constitute an employment contract for employment of any particular duration and represents the entire agreement between you and the Company, excepting certificates of compliance and acknowledgements of policies which you shall be required to sign from time to time. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+CLAUSE_10_AT_WILL
+exact_source_text:
+In accepting this offer of employment, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice. No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+tokenized_text:
+In accepting this offer of employment, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice. No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+CLAUSE_11_CONTINGENCIES
+exact_source_text:
+This offer is contingent on the successful completion of post-offer, background check, pre-employment physical, and drug screening. Please note that the Company will first conduct the background check and drug screening before you are asked to undertake the pre-employment physical. You will only be asked to undertake a pre-employment physical if you successfully complete the background check and drug screening. The pre-employment physical will be the last pre-employment condition you need to meet. Accordingly, if you receive notification to appear for a physical, that means you have successfully satisfied all other pre-employment contingencies.
+
+tokenized_text:
+This offer is contingent on the successful completion of post-offer, background check, pre-employment physical, and drug screening. Please note that the Company will first conduct the background check and drug screening before you are asked to undertake the pre-employment physical. You will only be asked to undertake a pre-employment physical if you successfully complete the background check and drug screening. The pre-employment physical will be the last pre-employment condition you need to meet. Accordingly, if you receive notification to appear for a physical, that means you have successfully satisfied all other pre-employment contingencies.
+
+CLAUSE_12_WORK_AUTH
+exact_source_text:
+Also, it is required by law that employees show proof of citizenship or legal registration to work in the United States.  Please refer to the attached sheet for further information about this matter and please bring your document(s) with you on your first day of work.
+
+tokenized_text:
+Also, it is required by law that employees show proof of citizenship or legal registration to work in the United States.  Please refer to the attached sheet for further information about this matter and please bring your document(s) with you on your first day of work.
+
+CLAUSE_13_GOVERNING_LAW
+exact_source_text:
+This offer of employment is governed by the laws of the State of XXXX, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+tokenized_text:
+This offer of employment is governed by the laws of the State of {{GOVERNING_STATE}}, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+CLOSING_PARAGRAPH
+exact_source_text:
+We believe that this opportunity will offer you a great deal of professional challenge and growth and will be one that you will find personally satisfying.  Please indicate your acceptance of this offer by signing below and returning a copy to INSERT HR CONTACT at EMAIL by DATE.
+
+tokenized_text:
+We believe that this opportunity will offer you a great deal of professional challenge and growth and will be one that you will find personally satisfying.  Please indicate your acceptance of this offer by signing below and returning a copy to {{HR_CONTACT}} at {{HR_EMAIL}} by {{ACCEPTANCE_DEADLINE}}.
+
+CLOSING_CONTACT
+exact_source_text:
+Please feel free to contact me at your convenience if you have any questions.  I look forward to working with you and welcome you to the Team!
+
+tokenized_text:
+Please feel free to contact me at your convenience if you have any questions.  I look forward to working with you and welcome you to the Team!
+
+------------------------------------------
+SCENARIO: salaried_fixed_term_external
+SOURCE FILE:
+2026 Kinross Offer Letter Template Salaried Fixed Term Assignment - external candidate w.ESPP edit FINAL.docx
+------------------------------------------
+
+HEADER_OPENING
+exact_source_text:
+Further to our discussions, I am pleased to extend to you an offer of employment in the capacity of INSERT JOB TITLE with INSERT SITE SUBSIDIARY NAME (the “Company”), an independently operated wholly-owned subsidiary of Kinross Gold U.S.A., Inc. (“Kinross”), commencing on INSERT DATE. This position is based out of INSERT SITE LOCATION and reports to the INSERT JOB TITLE.
+
+tokenized_text:
+Further to our discussions, I am pleased to extend to you an offer of employment in the capacity of {{JOB_TITLE}} with {{SITE_SUBSIDIARY_NAME}} (the “Company”), an independently operated wholly-owned subsidiary of Kinross Gold U.S.A., Inc. (“Kinross”), commencing on {{START_DATE}}. This position is based out of {{SITE_LOCATION}} and reports to the {{REPORTS_TO_TITLE}}.
+
+CLAUSE_1_DUTIES_EXEMPT
+exact_source_text:
+In your role as INSERT JOB TITLE, you will be responsible for, among other things, the duties, responsibilities and obligations set forth in the job description for this role.  The Company reserves the right to alter your duties and responsibilities from time to time.  This is a full-time exempt position.
+
+tokenized_text:
+In your role as {{JOB_TITLE}}, you will be responsible for, among other things, the duties, responsibilities and obligations set forth in the job description for this role.  The Company reserves the right to alter your duties and responsibilities from time to time.  This is a full-time exempt position.
+
+CLAUSE_2_TERM
+exact_source_text:
+We anticipate this role will last for approximately nine months although your employment will be at-will as described in paragraph 14.  The duration of this assignment may be extended upon mutual agreement or shortened to meet operational needs.
+
+tokenized_text:
+We anticipate this role will last for approximately {{ASSIGNMENT_DURATION_TEXT}} although your employment will be at-will as described in paragraph 14.  The duration of this assignment may be extended upon mutual agreement or shortened to meet operational needs.
+
+CLAUSE_3_BIWEEKLY
+exact_source_text:
+Your bi-weekly salary will be $$$ USD less applicable statutory and legally mandated withholdings.
+
+tokenized_text:
+Your bi-weekly salary will be {{BIWEEKLY_PAY}} USD less applicable statutory and legally mandated withholdings.
+
+CLAUSE_4_GEO
+exact_source_text:
+You will be eligible to participate in SITE’s Geographic Pay Allowance policy.  This benefit currently pays X% of an employee’s base rate each payday based on our geographic area.  You will be eligible for this allowance on the first day of the month following your hire date.  This allowance is subject to applicable statutory deductions and withholdings and will be reported on the employee’s W2.
+
+tokenized_text:
+You will be eligible to participate in {{SITE_NAME}}’s Geographic Pay Allowance policy.  This benefit currently pays {{GEO_PAY_PERCENT}}% of an employee’s base rate each payday based on our geographic area.  You will be eligible for this allowance on the first day of the month following your hire date.  This allowance is subject to applicable statutory deductions and withholdings and will be reported on the employee’s W2.
+
+source_comments_internal:
+Comment by Chelly Koeppen: Eligibility states a regular full-time employee so an Interim role would not qualify. If you remove this section you may need to adjust the paragraph number in Term #2.
+
+CLAUSE_5_PTO
+exact_source_text:
+Annual Paid Time Off (PTO) will be a maximum of XX hours, to be taken at a time which is agreeable to both you and the Company, subject to the Company's PTO policy. PTO earned in your first calendar year of employment is prorated based on your start date.  You will also be eligible for 10 paid holidays each calendar year.
+
+tokenized_text:
+Annual Paid Time Off (PTO) will be a maximum of {{PTO_HOURS}} hours, to be taken at a time which is agreeable to both you and the Company, subject to the Company's PTO policy. PTO earned in your first calendar year of employment is prorated based on your start date.  You will also be eligible for 10 paid holidays each calendar year.
+
+source_comments_internal:
+Comment by Chelly Koeppen: Note that if the role is titled as ‘Interim’, PTO accrual would not be offered per the PTO policy. Comment by Chelly Koeppen: If you remove this section, you may need to adjust the paragraph number in Term #2.
+
+CLAUSE_6_BENEFITS
+exact_source_text:
+You will be eligible to participate in Kinross’ comprehensive benefit program according to its terms and conditions.  Generally, eligibility begins on the first of the month following hire.  A summary of these benefits is attached to this letter.  Full details of these benefits, including medical, dental, vision, life and disability insurance, will be provided to you on commencement of employment.  Kinross reviews its employee benefit plans and programs periodically and all are subject to change or termination.  You will also be entitled to any legally-required benefits under applicable law.
+
+tokenized_text:
+You will be eligible to participate in Kinross’ comprehensive benefit program according to its terms and conditions.  Generally, eligibility begins on the first of the month following hire.  A summary of these benefits is attached to this letter.  Full details of these benefits, including medical, dental, vision, life and disability insurance, will be provided to you on commencement of employment.  Kinross reviews its employee benefit plans and programs periodically and all are subject to change or termination.  You will also be entitled to any legally-required benefits under applicable law.
+
+CLAUSE_7_RETIREMENT
+exact_source_text:
+You will be eligible to participate in the Kinross Gold Retirement Plan (a 401(k) plan) according to its terms and conditions generally summarized as follows. The first of the month following hire date, you will be automatically enrolled to defer 3% of your eligible pay as pre-tax contributions.  You may change your deferral rate at any time.  The first of the month following hire date, Kinross will match 100% of your deferral contributions limited to 6% of your eligible pay per pay period. The first of the month following the completion of six (6) months of employment, Kinross will make additional contributions equal to 4% of your eligible pay per pay period.
+
+tokenized_text:
+You will be eligible to participate in the Kinross Gold Retirement Plan (a 401(k) plan) according to its terms and conditions generally summarized as follows. The first of the month following hire date, you will be automatically enrolled to defer 3% of your eligible pay as pre-tax contributions.  You may change your deferral rate at any time.  The first of the month following hire date, Kinross will match 100% of your deferral contributions limited to 6% of your eligible pay per pay period. The first of the month following the completion of six (6) months of employment, Kinross will make additional contributions equal to 4% of your eligible pay per pay period.
+
+CLAUSE_8_ESPP_SHAREWORKS
+exact_source_text:
+You will be eligible to participate in the Kinross Employee Share Purchase Plan upon your first day of employment, according to its terms and conditions. This plan allows you to contribute up to 10% of your base salary to purchase Kinross common stock and receive a 50% match from Kinross. Participation in the plan, and any change to contribution levels, should be made online through your Shareworks account and will become effective on the first day of the quarter following 60 days’ notice.
+
+tokenized_text:
+You will be eligible to participate in the Kinross Employee Share Purchase Plan upon your first day of employment, according to its terms and conditions. This plan allows you to contribute up to 10% of your base salary to purchase Kinross common stock and receive a 50% match from Kinross. Participation in the plan, and any change to contribution levels, should be made online through your Shareworks account and will become effective on the first day of the quarter following 60 days’ notice.
+
+CLAUSE_9_POLICIES
+exact_source_text:
+You will be subject to and must comply with the employment policies, practices and rules of the Company, including, but not limited to, the Kinross Code of Business Conduct and Ethics, a copy of which will be sent to you under separate cover upon request.  While other independently operated subsidiaries of Kinross Gold U.S.A., Inc., may utilize common polices, you acknowledge your employment is with the Company and no other entity.
+
+tokenized_text:
+You will be subject to and must comply with the employment policies, practices and rules of the Company, including, but not limited to, the Kinross Code of Business Conduct and Ethics, a copy of which will be sent to you under separate cover upon request.  While other independently operated subsidiaries of Kinross Gold U.S.A., Inc., may utilize common polices, you acknowledge your employment is with the Company and no other entity.
+
+CLAUSE_10_CONFIDENTIALITY
+exact_source_text:
+You agree not to use for your own account or disclose to anyone else, during or after the term of your employment with the Company, any trade secret or proprietary information and/or material relating to the Company’s operations or business (that is not otherwise available in the public domain) which you obtain from the Company or its officers, employees, or agents by virtue of your employment with the Company unless authorized by law.
+
+tokenized_text:
+You agree not to use for your own account or disclose to anyone else, during or after the term of your employment with the Company, any trade secret or proprietary information and/or material relating to the Company’s operations or business (that is not otherwise available in the public domain) which you obtain from the Company or its officers, employees, or agents by virtue of your employment with the Company unless authorized by law.
+
+CLAUSE_11_CONFLICTS
+exact_source_text:
+You will ensure that your personal interests do not conflict with the Company’s interests. You agree to promptly report any potential or actual conflicts of interest to me.  A conflict of interest would include, for instance, a financial interest of yours or of a family member in the Company or a competitor.
+
+tokenized_text:
+You will ensure that your personal interests do not conflict with the Company’s interests. You agree to promptly report any potential or actual conflicts of interest to me.  A conflict of interest would include, for instance, a financial interest of yours or of a family member in the Company or a competitor.
+
+CLAUSE_12_INVENTIONS
+exact_source_text:
+You will immediately report any inventions, discoveries and innovations relating to the business of the Company made or conceived by you while employed by the Company.  You agree that all of these will be the exclusive property of the Company.  You understand that your agreement to assign all inventions to the Company does not obligate you to assign or offer to assign to the Company any of your rights in an invention for which no equipment, supplies, facilities or trade secret information of the Company was used and which was developed entirely on your own time, unless (a) the invention relates (i) directly to the business of the Company or (ii) to the Company's actual or demonstrably anticipated research or development, or (b) the invention results from any work performed by you for the Company.
+
+tokenized_text:
+You will immediately report any inventions, discoveries and innovations relating to the business of the Company made or conceived by you while employed by the Company.  You agree that all of these will be the exclusive property of the Company.  You understand that your agreement to assign all inventions to the Company does not obligate you to assign or offer to assign to the Company any of your rights in an invention for which no equipment, supplies, facilities or trade secret information of the Company was used and which was developed entirely on your own time, unless (a) the invention relates (i) directly to the business of the Company or (ii) to the Company's actual or demonstrably anticipated research or development, or (b) the invention results from any work performed by you for the Company.
+
+source_comments_internal:
+Comment by Chelly Koeppen: For Supervisor roles, this paragraph can be removed. If you do so, be sure to adjust the paragraph number reference in Term #2.
+
+CLAUSE_13_NO_OTHER_OBLIGATIONS
+exact_source_text:
+You represent to the Company that you have no obligations, legal or otherwise, that are inconsistent with the terms of this employment offer, or with your employment obligations to the Company.  You represent that you will not, by accepting employment with the Company or by carrying out your employment duties pursuant to this offer, be in breach of any obligations that you owe to any other person or entity.
+
+tokenized_text:
+You represent to the Company that you have no obligations, legal or otherwise, that are inconsistent with the terms of this employment offer, or with your employment obligations to the Company.  You represent that you will not, by accepting employment with the Company or by carrying out your employment duties pursuant to this offer, be in breach of any obligations that you owe to any other person or entity.
+
+CLAUSE_14_ENTIRE_AGREEMENT
+exact_source_text:
+You acknowledge that this offer letter does not constitute an employment contract for employment of any particular duration and represents the entire agreement between you and the Company, excepting certificates of compliance and acknowledgements of policies which you shall be required to sign from time to time. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+tokenized_text:
+You acknowledge that this offer letter does not constitute an employment contract for employment of any particular duration and represents the entire agreement between you and the Company, excepting certificates of compliance and acknowledgements of policies which you shall be required to sign from time to time. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+CLAUSE_15_AT_WILL
+exact_source_text:
+In accepting this offer of employment, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice.  No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+tokenized_text:
+In accepting this offer of employment, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice.  No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+CLAUSE_16_CONTINGENCIES
+exact_source_text:
+This offer is contingent on the successful completion of post-offer background check, drug screening, and a pre-employment physical. Please note that the Company will first conduct the background check and drug screening before you are asked to undertake the pre-employment physical. You will only be asked to undertake a pre-employment physical test if you successfully complete the background check and drug screening. The pre-employment physical test will be the last pre-employment condition you need to meet. Accordingly, if you receive notification to appear for a physical test, that means you have successfully satisfied all other pre-employment contingencies.
+
+tokenized_text:
+This offer is contingent on the successful completion of post-offer background check, drug screening, and a pre-employment physical. Please note that the Company will first conduct the background check and drug screening before you are asked to undertake the pre-employment physical. You will only be asked to undertake a pre-employment physical test if you successfully complete the background check and drug screening. The pre-employment physical test will be the last pre-employment condition you need to meet. Accordingly, if you receive notification to appear for a physical test, that means you have successfully satisfied all other pre-employment contingencies.
+
+CLAUSE_17_WORK_AUTH
+exact_source_text:
+Also, it is required by law that employees show proof of citizenship or legal authorization to work in the United States.  Please refer to the attached sheet for further information about this matter and please bring your original document(s) with you on your first day of work.
+
+tokenized_text:
+Also, it is required by law that employees show proof of citizenship or legal authorization to work in the United States.  Please refer to the attached sheet for further information about this matter and please bring your original document(s) with you on your first day of work.
+
+CLAUSE_18_GOVERNING_LAW
+exact_source_text:
+This offer of employment is governed by the laws of the State of INSERT STATE, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+tokenized_text:
+This offer of employment is governed by the laws of the State of {{GOVERNING_STATE}}, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+CLOSING_PARAGRAPH
+exact_source_text:
+We believe that this opportunity will offer you a great deal of professional challenge and growth and will be one that you will find personally satisfying.  Please indicate your acceptance of this offer by signing below and returning a copy to INSERT HR CONTACT by DATE.
+
+tokenized_text:
+We believe that this opportunity will offer you a great deal of professional challenge and growth and will be one that you will find personally satisfying.  Please indicate your acceptance of this offer by signing below and returning a copy to {{HR_CONTACT}} by {{ACCEPTANCE_DEADLINE}}.
+
+CLOSING_CONTACT
+exact_source_text:
+Please feel free to contact me at your convenience if you have any questions.  I look forward to working with you and welcome you to the team!
+
+tokenized_text:
+Please feel free to contact me at your convenience if you have any questions.  I look forward to working with you and welcome you to the team!
+
+------------------------------------------
+SCENARIO: new_hire_salaried
+SOURCE FILE:
+2026 Offer Letter Template Salaried FINAL.docx
+------------------------------------------
+
+Use the same architecture as above.
+Populate clauses from the source template exactly, not paraphrased.
+At minimum include:
+- opening paragraph
+- immigration contingency paragraph if present in selected template/profile
+- annual salary clause
+- STIP clause
+- LTI clauses
+- signing bonus clause if applicable
+- PTO clause
+- prior service clause
+- tax support clause if applicable
+- benefits clause
+- retirement clause
+- ESPP clause
+- relocation clause
+- policies clause
+- confidentiality clause
+- conflicts clause
+- inventions clause
+- no-other-obligations clause
+- entire agreement clause
+- at-will clause
+- termination protection clause if applicable in selected profile
+- contingencies clause
+- work authorization clause
+- governing law clause
+- closing paragraphs
+
+For this scenario, pull exact language from the uploaded salaried template and store it exactly as done above. Do not substitute your own wording. The same applies to the fixed-term and vice-president examples. :contentReference[oaicite:1]{index=1}
+
+------------------------------------------
+SCENARIO: promotion_hourly_role_change
+SOURCE FILE:
+Kinross Offer Letter hourly role change FINAL.docx
+------------------------------------------
+
+HEADER_OPENING
+exact_source_text:
+We are pleased to extend to you an offer of promotion with INSERT SUBSIDIARY SITE (the “Company”) in the capacity of INSERT JOB TITLE, commencing on INSERT DATE.  This position reports to the INSERT JOB TITLE.
+
+tokenized_text:
+We are pleased to extend to you an offer of promotion with {{SUBSIDIARY_SITE}} (the “Company”) in the capacity of {{JOB_TITLE}}, commencing on {{START_DATE}}.  This position reports to the {{REPORTS_TO_TITLE}}.
+
+CLAUSE_1_HOURLY
+exact_source_text:
+Your new hourly wage will be US $XX.XX/hour less applicable statutory and legally mandated withholdings.
+
+tokenized_text:
+Your new hourly wage will be US ${{HOURLY_RATE}}/hour less applicable statutory and legally mandated withholdings.
+
+source_comments_internal:
+Comment by Chelly Koeppen: If the hourly rate remains the same, then change the wording to ‘Your hourly wage will continue to be US $XX.XX/hour.’
+
+CLAUSE_2_BACKGROUND
+exact_source_text:
+This promotion offer is contingent on the successful completion of a post-offer background check.
+
+tokenized_text:
+This promotion offer is contingent on the successful completion of a post-offer background check.
+
+source_comments_internal:
+Comment by Chelly Koeppen: The background check must be completed before the employee can transfer to the new role.
+
+CLAUSE_3_ENTIRE_AGREEMENT
+exact_source_text:
+You acknowledge that this change of employment does not constitute an employment contract for employment of any particular duration and represents the entire agreement between you and the Company, excepting certificates of compliance and acknowledgements of policies which you shall be required to sign from time to time. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+tokenized_text:
+You acknowledge that this change of employment does not constitute an employment contract for employment of any particular duration and represents the entire agreement between you and the Company, excepting certificates of compliance and acknowledgements of policies which you shall be required to sign from time to time. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+CLAUSE_4_AT_WILL
+exact_source_text:
+In accepting this offer, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice.  No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+tokenized_text:
+In accepting this offer, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice.  No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+CLAUSE_5_ALL_OTHER_TERMS
+exact_source_text:
+All other terms and conditions of your present employment with the Company as stated in your original offer letter will not be affected by this change in position.
+
+tokenized_text:
+All other terms and conditions of your present employment with the Company as stated in your original offer letter will not be affected by this change in position.
+
+CLAUSE_6_GOVERNING_LAW
+exact_source_text:
+This offer of promotion is governed by the laws of the State of INSERT STATE, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+tokenized_text:
+This offer of promotion is governed by the laws of the State of {{GOVERNING_STATE}}, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+------------------------------------------
+SCENARIO: promotion_hourly_to_salary
+SOURCE FILE:
+Kinross Offer Letter hourly to salary promotion FINAL.docx
+------------------------------------------
+
+HEADER_OPENING
+exact_source_text:
+Further to our discussions, I am pleased to extend to you an offer of promotion in the capacity of INSERT JOB TITLE with INSERT SITE SUBSIDIARY NAME] (the “Company”), an independently operated wholly-owned subsidiary of Kinross Gold U.S.A., Inc. (“Kinross”), commencing on INSERT DATE. This position is based out of INSERT SITE LOCATION and reports to the INSERT JOB TITLE.
+
+tokenized_text:
+Further to our discussions, I am pleased to extend to you an offer of promotion in the capacity of {{JOB_TITLE}} with {{SITE_SUBSIDIARY_NAME}} (the “Company”), an independently operated wholly-owned subsidiary of Kinross Gold U.S.A., Inc. (“Kinross”), commencing on {{START_DATE}}. This position is based out of {{SITE_LOCATION}} and reports to the {{REPORTS_TO_TITLE}}.
+
+CLAUSE_1_SALARY
+exact_source_text:
+Your annual salary will be $XX,000.00 ($X,000.00 bi-weekly) less applicable withholdings, paid on a bi-weekly basis with future salary adjustments based on individual and corporate performance, as determined by the Company through annual goals and objectives. These adjustments generally are made based on the previous year’s performance.  Your next salary review will take place in the first quarter of [INSERT YEAR].
+
+tokenized_text:
+Your annual salary will be ${{ANNUAL_SALARY}} (${{BIWEEKLY_PAY}} bi-weekly) less applicable withholdings, paid on a bi-weekly basis with future salary adjustments based on individual and corporate performance, as determined by the Company through annual goals and objectives. These adjustments generally are made based on the previous year’s performance.  Your next salary review will take place in the first quarter of {{NEXT_REVIEW_YEAR}}.
+
+CLAUSE_2_PAY_DATE_NOTE
+exact_source_text:
+Any changes to pay date should be noted here especially if pay will be for one week with the change in roles.
+
+tokenized_text:
+{{PAY_DATE_CHANGE_NOTE}}
+
+CLAUSE_3_STIP
+exact_source_text:
+You will be eligible to participate in Kinross’ annual short-term incentive plan (“STIP”) effective the 202# fiscal year.  The annual target incentive for this position is ##% of annual base salary, and is based on the attainment of corporate, department and individual goals and objectives, to be determined with your manager and evaluated through the Performance Management System. Short-term incentive awards (if any) are typically paid in February of each year for the previous year’s performance. In the event you resign from the Company before the date of payment of any short-term incentive award, you will not be eligible to receive any such short-term incentive award (or damages in lieu thereof). Short-term incentive payments are not guaranteed in any particular year(s) or from year-to-year. Nothing in this offer letter alters or amends the terms of the STIP, which can be modified in Kinross’ sole discretion.
+
+tokenized_text:
+You will be eligible to participate in Kinross’ annual short-term incentive plan (“STIP”) effective the {{STIP_EFFECTIVE_YEAR}} fiscal year.  The annual target incentive for this position is {{STIP_TARGET_PERCENT}}% of annual base salary, and is based on the attainment of corporate, department and individual goals and objectives, to be determined with your manager and evaluated through the Performance Management System. Short-term incentive awards (if any) are typically paid in February of each year for the previous year’s performance. In the event you resign from the Company before the date of payment of any short-term incentive award, you will not be eligible to receive any such short-term incentive award (or damages in lieu thereof). Short-term incentive payments are not guaranteed in any particular year(s) or from year-to-year. Nothing in this offer letter alters or amends the terms of the STIP, which can be modified in Kinross’ sole discretion.
+
+CLAUSE_4_GEO_NOTE
+exact_source_text:
+Any changes to Geo Premiums should be noted here (Alaska only).
+
+tokenized_text:
+{{GEO_PREMIUM_CHANGE_NOTE}}
+
+CLAUSE_5_PTO
+exact_source_text:
+Annual Paid Time Off (PTO) will be a maximum of XX hours, to be taken at a time which is agreeable to both you and the Company, subject to the Company's PTO policy.
+
+tokenized_text:
+Annual Paid Time Off (PTO) will be a maximum of {{PTO_HOURS}} hours, to be taken at a time which is agreeable to both you and the Company, subject to the Company's PTO policy.
+
+CLAUSE_6_HOURLY_BONUS_DISCONTINUATION
+exact_source_text:
+Any hourly bonus accumulated during the quarter when your promotion is effective will be paid to you on the current quarterly bonus payment schedule.  As of the effective the date your promotion, you will no longer be eligible to participate in the non-exempt quarterly bonus plan.
+
+tokenized_text:
+Any hourly bonus accumulated during the quarter when your promotion is effective will be paid to you on the current quarterly bonus payment schedule.  As of the effective the date your promotion, you will no longer be eligible to participate in the non-exempt quarterly bonus plan.
+
+CLAUSE_7_HOUSING
+exact_source_text:
+You are eligible for Round Mountain’s housing benefit.  Details will be made available to you upon acceptance of this offer.
+
+tokenized_text:
+You are eligible for Round Mountain’s housing benefit.  Details will be made available to you upon acceptance of this offer.
+
+source_comments_internal:
+Round Mountain only
+
+CLAUSE_8_BACKGROUND
+exact_source_text:
+This promotion offer is contingent on the successful completion of a post-offer background check.
+
+tokenized_text:
+This promotion offer is contingent on the successful completion of a post-offer background check.
+
+source_comments_internal:
+Comment by Chelly Koeppen: The background check must be completed before the employee can transfer to the new role.
+
+CLAUSE_9_ENTIRE_AGREEMENT
+exact_source_text:
+You acknowledge that this offer of promotion does not constitute an employment contract for employment of any particular duration. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+tokenized_text:
+You acknowledge that this offer of promotion does not constitute an employment contract for employment of any particular duration. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+CLAUSE_10_AT_WILL
+exact_source_text:
+In accepting this offer of promotion, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice.  No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+tokenized_text:
+In accepting this offer of promotion, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice.  No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+CLAUSE_11_ALL_OTHER_TERMS
+exact_source_text:
+All other terms and conditions of your present employment with the Company as stated in your original offer letter will not be affected by this change in position.
+
+tokenized_text:
+All other terms and conditions of your present employment with the Company as stated in your original offer letter will not be affected by this change in position.
+
+CLAUSE_12_GOVERNING_LAW
+exact_source_text:
+This offer of promotion is governed by the laws of the State of INSERT STATE, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+tokenized_text:
+This offer of promotion is governed by the laws of the State of {{GOVERNING_STATE}}, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+------------------------------------------
+SCENARIO: site_to_site_transfer_salary
+SOURCE FILE:
+Offer Letter site to site transfer_Salary FINAL.docx
+------------------------------------------
+
+HEADER_OPENING
+exact_source_text:
+Further to our discussions, you will be transferred to INSERT SUBSIDIARY SITE property in the capacity of INSERT JOB TITLE, an independently operated wholly owned subsidiary of Kinross Gold U.S.A., Inc., commencing on INSERT DATE.  This position is based out of INSERT SITE LOCATION and reports to the INSERT JOB TITLE.
+
+tokenized_text:
+Further to our discussions, you will be transferred to {{SUBSIDIARY_SITE}} property in the capacity of {{JOB_TITLE}}, an independently operated wholly owned subsidiary of Kinross Gold U.S.A., Inc., commencing on {{START_DATE}}.  This position is based out of {{SITE_LOCATION}} and reports to the {{REPORTS_TO_TITLE}}.
+
+IMMIGRATION_PARAGRAPH
+exact_source_text:
+This offer is contingent upon you obtaining and maintaining the required immigration.  Global Advantage, our mobility business partner, will be contacting you upon acceptance of this offer.  It is important that you respond to their requests promptly as the immigration application process can take several weeks or months from filing and we want to ensure that you are able to commence your employment within the reasonably foreseeable future.  The Company has the right to reconsider this offer if you fail to produce the necessary documentation in a reasonable time frame.
+
+tokenized_text:
+This offer is contingent upon you obtaining and maintaining the required immigration.  {{MOBILITY_PARTNER}}, our mobility business partner, will be contacting you upon acceptance of this offer.  It is important that you respond to their requests promptly as the immigration application process can take several weeks or months from filing and we want to ensure that you are able to commence your employment within the reasonably foreseeable future.  The Company has the right to reconsider this offer if you fail to produce the necessary documentation in a reasonable time frame.
+
+CLAUSE_1_SALARY
+exact_source_text:
+Your new annual base salary will be $XX,000.00($X,000.00 bi-weekly) less applicable statutory withholdings, paid on a bi-weekly basis, with future salary adjustments based on individual and corporate performance, as determined by the Company through annual goals and objectives. These adjustments generally are made based on the previous year’s performance.  Your next salary review will take place in the first quarter of [INSERT YEAR].
+
+tokenized_text:
+Your new annual base salary will be ${{ANNUAL_SALARY}}(${{BIWEEKLY_PAY}} bi-weekly) less applicable statutory withholdings, paid on a bi-weekly basis, with future salary adjustments based on individual and corporate performance, as determined by the Company through annual goals and objectives. These adjustments generally are made based on the previous year’s performance.  Your next salary review will take place in the first quarter of {{NEXT_REVIEW_YEAR}}.
+
+CLAUSE_2_STIP
+exact_source_text:
+You will continue to be eligible to participate in Kinross’ annual short-term incentive plan (“STIP”) effective the 202# fiscal year.  The annual target incentive for this position is ##% of annual base salary, and is based on the attainment of corporate, department and individual goals and objectives, to be determined with your manager and evaluated through the Performance Management System.  Short-term Incentive awards (if any) are typically paid in February of each year for the previous year’s performance.   Short-term incentive payments are not guaranteed in any particular year(s) or from year-to-year. Nothing in this offer letter alters or amends the terms of the STIP, which can be modified in Kinross’ sole discretion.
+In the event you resign from the Company before the date of payment of any Short-term Incentive award, you will not be eligible to receive any such Short-term Incentive award (or any damages in lieu thereof).
+
+tokenized_text:
+You will continue to be eligible to participate in Kinross’ annual short-term incentive plan (“STIP”) effective the {{STIP_EFFECTIVE_YEAR}} fiscal year.  The annual target incentive for this position is {{STIP_TARGET_PERCENT}}% of annual base salary, and is based on the attainment of corporate, department and individual goals and objectives, to be determined with your manager and evaluated through the Performance Management System.  Short-term Incentive awards (if any) are typically paid in February of each year for the previous year’s performance.   Short-term incentive payments are not guaranteed in any particular year(s) or from year-to-year. Nothing in this offer letter alters or amends the terms of the STIP, which can be modified in Kinross’ sole discretion.
+In the event you resign from the Company before the date of payment of any Short-term Incentive award, you will not be eligible to receive any such Short-term Incentive award (or any damages in lieu thereof).
+
+source_comments_internal:
+Add this language if the STI target is different than current role, otherwise change to “You will continue to be eligible for Kinross’ short-term incentive plan.”
+
+CLAUSE_3_LTI_NOTE
+exact_source_text:
+ADD LTI language #3 and #4 from the Master Salaried Template if applicable, otherwise change to “You will continue to be eligible for Kinross’ long-term incentive plan”, or remove entirely if not an LTI eligible role
+
+tokenized_text:
+{{LTI_TRANSFER_LANGUAGE}}
+
+CLAUSE_4_PRIOR_SERVICE
+exact_source_text:
+We recognize your previous service with other Kinross subsidiaries.  As such, your service date will be recognized as XX/XX/202X.
+
+tokenized_text:
+We recognize your previous service with other Kinross subsidiaries.  As such, your service date will be recognized as {{RECOGNIZED_SERVICE_DATE}}.
+
+source_comments_internal:
+Use this section if employee is transferring out of country
+
+CLAUSE_5_TAX_SUPPORT
+exact_source_text:
+We will arrange for you to receive support from Kinross’ designated tax service provider in relation to your 202X tax preparation and filings for HOME COUNTRY and the United States.  You will also be provided with a pre-move tax consultation call with the tax services provider.
+
+tokenized_text:
+We will arrange for you to receive support from Kinross’ designated tax service provider in relation to your {{TAX_YEAR}} tax preparation and filings for {{HOME_COUNTRY}} and the United States.  You will also be provided with a pre-move tax consultation call with the tax services provider.
+
+source_comments_internal:
+Use this section if the employee is transferring out of country
+
+CLAUSE_6_RELOCATION
+exact_source_text:
+You are eligible for reasonable and customary relocation benefits from your residence in City/State to site/State as outlined in Kinross Gold Corporation’s Relocation Policy, which is included with this offer letter.  Should you accept this offer, the relocation repayment agreement, attached, must also be completed, and returned to me.
+
+tokenized_text:
+You are eligible for reasonable and customary relocation benefits from your residence in {{RELOCATION_ORIGIN}} to {{RELOCATION_DESTINATION}} as outlined in Kinross Gold Corporation’s Relocation Policy, which is included with this offer letter.  Should you accept this offer, the relocation repayment agreement, attached, must also be completed, and returned to me.
+
+CLAUSE_7_BACKGROUND_DRUG
+exact_source_text:
+This offer is contingent upon the successful completion of a post-offer background check and drug screen.
+
+tokenized_text:
+This offer is contingent upon the successful completion of a post-offer background check and drug screen.
+
+CLAUSE_8_WORK_AUTH
+exact_source_text:
+It is required by law that employees show proof of citizenship or legal authorization to work in the United States.  Please refer to the attached sheet for further information about this matter and please bring your original document(s) with you on your first day of work at the new site.
+
+tokenized_text:
+It is required by law that employees show proof of citizenship or legal authorization to work in the United States.  Please refer to the attached sheet for further information about this matter and please bring your original document(s) with you on your first day of work at the new site.
+
+CLAUSE_9_ALL_OTHER_TERMS
+exact_source_text:
+All other terms and conditions of your present employment with the Company as stated in your original offer letter will not be affected by this change in position and employing entity, including your comprehensive benefit plan, PTO accrual, Kinross Retirement Plan and Employee Share Purchase Plan.
+
+tokenized_text:
+All other terms and conditions of your present employment with the Company as stated in your original offer letter will not be affected by this change in position and employing entity, including your comprehensive benefit plan, PTO accrual, Kinross Retirement Plan and Employee Share Purchase Plan.
+
+source_comments_internal:
+Comment by Chelly Koeppen: Per the guidebook, please confirm with the transferring to site that all PTO can be carried over, otherwise you may need to add a section about PTO and a cashout. If a person is transferring from an international site, then this section will need to be reworded.
+
+CLAUSE_10_ENTIRE_AGREEMENT
+exact_source_text:
+You acknowledge that this change of employment does not constitute an employment contract for employment of any particular duration. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+tokenized_text:
+You acknowledge that this change of employment does not constitute an employment contract for employment of any particular duration. No verbal or written agreements, promises, or representations that are not specifically stated in this offer are or will be binding upon the Company. In addition, the Company reserves the right to change your responsibilities, duties, supervisor, work hours, work location, compensation, and benefits programs from time to time, at its reasonable discretion, except as otherwise provided by law.
+
+CLAUSE_11_AT_WILL
+exact_source_text:
+In accepting this offer, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice.  No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+tokenized_text:
+In accepting this offer, you represent that you have not relied on any agreements or representations, express or implied, written or verbal with respect to your employment by the Company other than those set forth in this offer letter.  Your employment relationship is “at will” and may be terminated by you or the Company at any time, for any reason, with or without cause or notice.  No representative of the Company other than the President of the Company has the authority to make an exception to this, and such exception must be in writing and signed by the President of the Company.
+
+CLAUSE_12_GOVERNING_LAW
+exact_source_text:
+This offer of promotion is governed by the laws of the State of Washington, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+tokenized_text:
+This offer of promotion is governed by the laws of the State of Washington, except any conflicts of laws provisions thereof, and the laws of the United States applicable therein.
+
+==================================================
+IMPLEMENTATION RULES
+==================================================
+
+1. Store both exact_source_text and tokenized_text for every clause.
+2. Final rendering must use tokenized_text only.
+3. Tokenized text must differ from exact_source_text only where placeholders are replaced by tokens.
+4. No summarization layer.
+5. No rewriting helper.
+6. No AI paraphrase fallback.
+7. Comments/instructions from templates go into source_comments_internal only.
+8. If a clause is optional, omit it entirely when not selected. Do not replace it with explanatory filler.
+9. Preserve original capitalization, punctuation, spacing, and quoted terms as they appear in source.
+10. Build an admin/source view that allows side-by-side inspection of:
+   - source file
+   - exact_source_text
+   - tokenized_text
+   - rendered output
+
+==================================================
+VALIDATION RULES
+==================================================
+
+Add a clause integrity validator:
+
+- compare exact_source_text to tokenized_text after stripping tokens back to source placeholders
+- flag any clause where non-token wording has changed
+- block publish if a clause was manually edited outside token substitution rules
+- surface file/source reference for every clause
+
+==================================================
+FINAL GOAL
+==================================================
+
+The web app must behave like a deterministic clause assembler using the literal offer-letter language from the provided templates.
+It must not sound “close.”
+It must be exact.

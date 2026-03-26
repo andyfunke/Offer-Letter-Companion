@@ -327,6 +327,17 @@ export function ResumeUpload() {
               <span>{error}</span>
             </div>
           )}
+
+          <div className="text-center pt-1">
+            <button
+              id="skip-resume-upload"
+              type="button"
+              onClick={handleContinue}
+              className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+            >
+              Skip — I'll enter candidate details manually
+            </button>
+          </div>
         </CardContent>
       </Card>
     </div>

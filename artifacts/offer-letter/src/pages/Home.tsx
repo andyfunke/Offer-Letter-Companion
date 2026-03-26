@@ -15,8 +15,10 @@ import { format } from 'date-fns';
 import {
   Briefcase, Building2, Calendar, CheckCircle, ChevronRight, FileCheck, FileText, 
   MapPin, Settings2, User, Wallet, Save, Download, FileJson, AlertCircle, Shield, LogOut,
-  AlertTriangle, LayoutDashboard
+  AlertTriangle, LayoutDashboard, ClipboardList, Phone
 } from 'lucide-react';
+import { SCENARIO_LABELS, ScenarioId, getClausesForScenario, ClauseRecord } from '@/data/clause-library';
+import { buildTokenMap, renderToString } from '@/lib/render-clause';
 import * as Accordion from '@radix-ui/react-accordion';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -55,6 +57,86 @@ function OfferEditor() {
         });
       }
     });
+  };
+
+  const handleExport = () => {
+    const scenario = (state.formData.scenario_type || 'new_hire_salaried') as ScenarioId;
+    const clauses = getClausesForScenario(scenario);
+    const tokenMap = buildTokenMap(state.formData);
+    const { formData, fieldStates } = state;
+
+    function shouldExport(c: ClauseRecord): boolean {
+      if (!c.optional_flag) return true;
+      const rule = c.applicability_rule;
+      if (!rule || rule === 'always') return c.render_default;
+      const fs = fieldStates[rule];
+      if (fs === 'removed') return false;
+      if (fs === 'active' || fs === 'inherited') return true;
+      if (rule === 'stip_applicable') {
+        const pct = formData.stip_target_percent;
+        return typeof pct === 'number' ? !isNaN(pct) && pct > 0 : !!(pct && String(pct).trim());
+      }
+      if (rule === 'lti_applicable') return !!formData.lti_applicable || !!(formData.lti_grant_value);
+      if (rule === 'relocation_applicable') return !!(formData.relocation_origin || formData.relocation_destination);
+      if (rule === 'immigration_applicable') return !!(formData.immigration_partner_name);
+      const fv = formData[rule];
+      if (typeof fv === 'boolean') return fv;
+      if (typeof fv === 'string' && fv.trim()) return true;
+      return c.render_default;
+    }
+
+    const lines: string[] = [];
+    const candidateName = formData.candidate_full_name || '[Candidate Name]';
+    const letterDate = formData.letter_date ? new Date(formData.letter_date + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '[Date]';
+
+    lines.push(letterDate);
+    lines.push('');
+    lines.push(candidateName);
+    if (formData.candidate_email) lines.push(formData.candidate_email);
+    lines.push('');
+    lines.push('Private and Confidential');
+    lines.push('');
+    lines.push(`Dear ${candidateName},`);
+    lines.push('');
+
+    const header = clauses.find(c => c.role === 'HEADER_OPENING');
+    if (header) lines.push(renderToString(header.tokenized_text, tokenMap), '');
+
+    const immigration = clauses.find(c => c.role === 'IMMIGRATION_PARAGRAPH');
+    if (immigration && shouldExport(immigration)) lines.push(renderToString(immigration.tokenized_text, tokenMap), '');
+
+    const isSalaried = ['new_hire_salaried', 'promotion_hourly_to_salary', 'site_to_site_transfer_salary'].includes(scenario);
+    if (isSalaried) { lines.push('The following terms and conditions of this offer are set out below:'); lines.push(''); }
+
+    clauses
+      .filter(c => c.role === 'CLAUSE')
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .forEach(c => {
+        if (!shouldExport(c)) return;
+        lines.push(renderToString(c.tokenized_text, tokenMap));
+        lines.push('');
+      });
+
+    const closingPara = clauses.find(c => c.role === 'CLOSING_PARAGRAPH');
+    if (closingPara) lines.push(renderToString(closingPara.tokenized_text, tokenMap), '');
+
+    const closingContact = clauses.find(c => c.role === 'CLOSING_CONTACT');
+    if (closingContact) lines.push(renderToString(closingContact.tokenized_text, tokenMap), '');
+
+    lines.push('Sincerely,');
+    lines.push('');
+    lines.push(formData.company_representative_name || 'Gina Myers');
+    lines.push(formData.company_representative_title || 'President & General Manager');
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeName = (candidateName).replace(/[^a-zA-Z0-9]/g, '_');
+    a.download = `Offer_Letter_${safeName}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Letter Exported', description: 'Plaintext offer letter downloaded.' });
   };
 
   if (state.step === 'upload') {
@@ -173,7 +255,7 @@ function OfferEditor() {
             <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={createOfferMutation.isPending}>
               <Save className="w-4 h-4 mr-2" /> Save Draft
             </Button>
-            <Button size="sm" disabled={state.unresolvedDecisions > 0}>
+            <Button size="sm" onClick={handleExport}>
               <Download className="w-4 h-4 mr-2" /> Export
             </Button>
           </div>
@@ -193,8 +275,48 @@ function OfferEditor() {
               </span>
             </div>
 
-            <Accordion.Root type="multiple" defaultValue={["candidate", "employment", "comp"]} className="space-y-4">
+            <Accordion.Root type="multiple" defaultValue={["setup", "candidate", "employment", "comp"]} className="space-y-4">
               
+              {/* SECTION: LETTER SETUP */}
+              <Accordion.Item value="setup" className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                <Accordion.Header>
+                  <Accordion.Trigger className="w-full flex items-center justify-between p-4 hover:bg-accent/5 transition-colors group">
+                    <div className="flex items-center gap-3 font-serif font-semibold text-lg">
+                      <ClipboardList className="w-5 h-5 text-primary" /> Letter Setup
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground group-data-[state=open]:rotate-90 transition-transform" />
+                  </Accordion.Trigger>
+                </Accordion.Header>
+                <Accordion.Content className="p-4 pt-0 border-t bg-slate-50/50 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+                  <div className="grid grid-cols-1 gap-4 mt-4">
+                    <FieldWrapper id="scenario_type" label="Scenario / Template">
+                      <select
+                        className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                        value={state.formData.scenario_type || 'new_hire_salaried'}
+                        onChange={e => setField('scenario_type', e.target.value)}
+                      >
+                        {(Object.entries(SCENARIO_LABELS) as [ScenarioId, string][]).map(([id, label]) => (
+                          <option key={id} value={id}>{label}</option>
+                        ))}
+                      </select>
+                    </FieldWrapper>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FieldWrapper id="hr_contact_name" label="HR Contact Name">
+                        <Input value={state.formData.hr_contact_name || ''} onChange={e => setField('hr_contact_name', e.target.value)} placeholder="e.g. Renee Karikas" />
+                      </FieldWrapper>
+                      <FieldWrapper id="hr_contact_email" label="HR Contact Email" optional>
+                        <Input type="email" value={state.formData.hr_contact_email || ''} onChange={e => setField('hr_contact_email', e.target.value)} placeholder="hr@kinross.com" />
+                      </FieldWrapper>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FieldWrapper id="governing_state" label="Governing State">
+                        <Input value={state.formData.governing_state || ''} onChange={e => setField('governing_state', e.target.value)} placeholder="e.g. WA" />
+                      </FieldWrapper>
+                    </div>
+                  </div>
+                </Accordion.Content>
+              </Accordion.Item>
+
               {/* SECTION: CANDIDATE */}
               <Accordion.Item value="candidate" className="border rounded-xl bg-card overflow-hidden shadow-sm">
                 <Accordion.Header>
@@ -238,8 +360,14 @@ function OfferEditor() {
                     <FieldWrapper id="job_title" label="Job Title">
                       <Input value={state.formData.job_title || ''} onChange={e => setField('job_title', e.target.value)} />
                     </FieldWrapper>
-                    <FieldWrapper id="site_name" label="Site Name">
-                      <Input value={state.formData.site_name || ''} onChange={e => setField('site_name', e.target.value)} />
+                    <FieldWrapper id="site_subsidiary_name" label="Site Subsidiary Name">
+                      <Input value={state.formData.site_subsidiary_name || ''} onChange={e => setField('site_subsidiary_name', e.target.value)} placeholder="e.g. Echo Bay Minerals, Inc." />
+                    </FieldWrapper>
+                    <FieldWrapper id="site_name" label="Site Name (short)">
+                      <Input value={state.formData.site_name || ''} onChange={e => setField('site_name', e.target.value)} placeholder="e.g. Echo Bay" />
+                    </FieldWrapper>
+                    <FieldWrapper id="site_location" label="Site Location">
+                      <Input value={state.formData.site_location || ''} onChange={e => setField('site_location', e.target.value)} placeholder="e.g. Republic, WA" />
                     </FieldWrapper>
                     <FieldWrapper id="start_date" label="Expected Start Date">
                       <Input type="date" value={state.formData.start_date || ''} onChange={e => setField('start_date', e.target.value)} />
@@ -247,6 +375,27 @@ function OfferEditor() {
                     <FieldWrapper id="reports_to_title" label="Reports To (Title)">
                       <Input value={state.formData.reports_to_title || ''} onChange={e => setField('reports_to_title', e.target.value)} />
                     </FieldWrapper>
+                    {/* Scenario-specific fields */}
+                    {state.formData.scenario_type === 'new_hire_hourly' && (
+                      <FieldWrapper id="position_step" label="Position / Step" optional>
+                        <Input value={state.formData.position_step || ''} onChange={e => setField('position_step', e.target.value)} placeholder="e.g. Maintenance Technician / Step 3" />
+                      </FieldWrapper>
+                    )}
+                    {state.formData.scenario_type === 'internship' && (
+                      <FieldWrapper id="max_months" label="Maximum Term (months)">
+                        <Input type="number" min={1} max={24} value={state.formData.max_months || ''} onChange={e => setField('max_months', parseInt(e.target.value))} />
+                      </FieldWrapper>
+                    )}
+                    {state.formData.scenario_type === 'salaried_fixed_term_external' && (
+                      <FieldWrapper id="assignment_duration_text" label="Assignment Duration (text)">
+                        <Input value={state.formData.assignment_duration_text || ''} onChange={e => setField('assignment_duration_text', e.target.value)} placeholder="e.g. nine months" />
+                      </FieldWrapper>
+                    )}
+                    {(state.formData.scenario_type === 'promotion_hourly_role_change' || state.formData.scenario_type === 'site_to_site_transfer_salary') && (
+                      <FieldWrapper id="subsidiary_site" label="Subsidiary / Site Entity Name">
+                        <Input value={state.formData.subsidiary_site || ''} onChange={e => setField('subsidiary_site', e.target.value)} placeholder="e.g. Echo Bay Minerals, Inc." />
+                      </FieldWrapper>
+                    )}
                   </div>
                 </Accordion.Content>
               </Accordion.Item>
@@ -288,16 +437,36 @@ function OfferEditor() {
                     )}
 
                     <div className="grid grid-cols-2 gap-4 mt-2">
-                      <FieldWrapper id="stip_applicable" label="STIP (Short Term Incentive)" optional helpText="Requires target % if active">
+                      <FieldWrapper id="stip_applicable" label="STIP Target %" optional helpText="Leave blank to omit STIP clause">
                         <div className="flex items-center gap-3">
                           <Input type="number" placeholder="Target %" value={state.formData.stip_target_percent || ''} onChange={e => setField('stip_target_percent', parseFloat(e.target.value))} />
                           <span className="text-muted-foreground font-medium">%</span>
                         </div>
                       </FieldWrapper>
+                      <FieldWrapper id="stip_effective_year" label="STIP Effective Year" optional>
+                        <Input type="number" placeholder={String(new Date().getFullYear())} value={state.formData.stip_effective_year || ''} onChange={e => setField('stip_effective_year', e.target.value)} />
+                      </FieldWrapper>
+                      <FieldWrapper id="next_review_year" label="Next Salary Review Year" optional>
+                        <Input type="number" placeholder={String(new Date().getFullYear() + 1)} value={state.formData.next_review_year || ''} onChange={e => setField('next_review_year', e.target.value)} />
+                      </FieldWrapper>
                       <FieldWrapper id="housing_benefit_applicable" label="Housing Allowance" optional>
                         <Input placeholder="Amount or description" value={state.formData.housing_benefit_text || ''} onChange={e => setField('housing_benefit_text', e.target.value)} />
                       </FieldWrapper>
                     </div>
+                    {/* LTI — salaried scenarios only */}
+                    {['new_hire_salaried', 'site_to_site_transfer_salary'].includes(state.formData.scenario_type) && (
+                      <div className="grid grid-cols-2 gap-4 mt-2">
+                        <FieldWrapper id="lti_grant_value" label="LTI Grant Value (CAD $)" optional helpText="e.g. 75,000.00">
+                          <Input placeholder="XX,000.00" value={state.formData.lti_grant_value || ''} onChange={e => setField('lti_grant_value', e.target.value)} />
+                        </FieldWrapper>
+                        <FieldWrapper id="lti_applicable" label="Include LTI Clause" optional>
+                          <div className="flex items-center gap-2 h-10">
+                            <Switch checked={!!state.formData.lti_applicable} onCheckedChange={c => setField('lti_applicable', c)} />
+                            <span className="text-sm">Yes, include LTI clause</span>
+                          </div>
+                        </FieldWrapper>
+                      </div>
+                    )}
                   </div>
                 </Accordion.Content>
               </Accordion.Item>

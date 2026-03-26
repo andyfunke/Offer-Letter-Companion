@@ -53,37 +53,52 @@ artifacts-monorepo/
 - **Center**: Multi-section accordion form (8 sections)
 - **Right rail**: Live letter preview (letterhead + clause assembly)
 
-### 8 Supported Scenarios
-- new_hire_hourly, new_hire_salaried, salaried_fixed_term_external, internship
-- promotion_hourly_role_change, promotion_hourly_to_salary
-- site_to_site_transfer_salary, relocation_repayment_agreement
+### 7 Supported Scenarios (Clause Library)
+- `new_hire_hourly` — New Hire (Hourly)
+- `new_hire_salaried` — New Hire (Salaried, partial extraction from DOCX)
+- `salaried_fixed_term_external` — Fixed-Term External
+- `internship` — Internship
+- `promotion_hourly_role_change` — Promotion (Hourly, Role Change)
+- `promotion_hourly_to_salary` — Promotion (Hourly → Salary)
+- `site_to_site_transfer_salary` — Site-to-Site Transfer (Salaried)
 
-### Field Applicability Engine
-- Three states per field: active / removed / inherited
-- "Remove from consideration" X button on optional fields
-- Cascading removal (e.g., removing relocation_applicable cascades to repayment agreement, policy attachment)
-- Inherited fields shown in muted blue badge
+### Clause Library (`artifacts/offer-letter/src/data/clause-library.ts`)
+- All clause text is VERBATIM from approved DOCX templates — no paraphrasing
+- Each clause has: `id`, `section`, `label`, `exact_source_text`, `tokenized_text`, `applicability` rules
+- `tokenized_text` is the only string used for final output/export
 
-### Compensation Normalization (salaried)
-- rawSalary → ÷2080 → Math.ceil(×100)/100 → ×2080 → ÷26
-- Shows normalization preview box, user must confirm before generation
+### Token Renderer (`artifacts/offer-letter/src/lib/render-clause.ts`)
+- `buildTokenMap(form)` maps all form fields to `{{TOKEN}}` keys
+- `renderSegments()` returns typed segments (text / filled / unfilled) for preview highlighting
+- `renderToString()` used for plaintext `.txt` export
+- Unfilled tokens render as amber badges `[TOKEN_NAME]` in preview
 
-### PTO Logic
-- Defaults shown from template profile
-- Tenure exception toggle
-- User must explicitly confirm PTO value before export is enabled
+### Letter Preview (`LetterPreview.tsx`)
+- Reads clauses from `getClausesForScenario()` 
+- Applies `shouldRender()` applicability rules (STIP only when % entered; immigration/relocation/LTI/geo-pay conditional)
+- Source integrity footer shows source file name
+- Right-rail live preview; 450px wide
+
+### Form Layout — Letter Setup Section (new)
+- Scenario / Template dropdown (all 7 types)
+- HR Contact Name + Email fields
+- Governing State field
+- Site Subsidiary Name, Site Location, Position Step
+- max_months, assignment_duration_text, STIP effective year, next review year, LTI grant value
+
+### Resume Upload
+- Optional — "Skip — I'll enter candidate details manually" link bypasses upload
+- Parses candidate name, email, location from PDF/DOCX
+- Triggers relocation/immigration banners based on detected location
+
+### Plaintext Export
+- "Export" button in top toolbar downloads `offer-letter.txt`
+- Assembled from clause library only — deterministic, no AI
 
 ### Template Profile System
 - Save current form state as named profile
-- Load profiles from left rail (fills active/removed fields + scenario)
-- Inherited state tracked for loaded fields
-
-### Validation Gate
-- Unresolved decisions counter in header
-- Export blocked until: resume uploaded, name/email set, PTO confirmed, governing_state set, compensation resolved, relocation/immigration details complete
-
-### Claude Execution Payload
-- "Copy Claude Payload" button generates structured JSON with scenario, candidate, resolvedFields, removedFields, clauses, attachments, letterhead, exportNotes
+- Load profiles from left rail
+- Session-based state management via `use-offer-store.tsx`
 
 ## Auth System
 
