@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 
 // ── PDF text extraction via pdfjs-dist ──────────────────────────────────────
+// Uses each item's Y coordinate to reconstruct real line breaks instead of
+// joining the entire page into one flat string.
 async function extractTextFromPdf(file: File): Promise<string> {
   const pdfjsLib = await import('pdfjs-dist');
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -15,13 +17,32 @@ async function extractTextFromPdf(file: File): Promise<string> {
 
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  const texts: string[] = [];
+  const pageTexts: string[] = [];
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    texts.push(content.items.map((item: any) => item.str).join(' '));
+    const items = content.items as Array<{ str: string; transform: number[] }>;
+
+    // Group items by rounded Y position so each visual line becomes one entry
+    const lineMap = new Map<number, string[]>();
+    for (const item of items) {
+      if (!item.str.trim()) continue;
+      const y = Math.round(item.transform[5]); // transform[5] = y position
+      if (!lineMap.has(y)) lineMap.set(y, []);
+      lineMap.get(y)!.push(item.str);
+    }
+
+    // Sort descending by Y (PDF origin is bottom-left, so larger Y = higher on page)
+    const sortedLines = [...lineMap.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([, parts]) => parts.join(' ').replace(/\s{2,}/g, ' ').trim())
+      .filter(Boolean);
+
+    pageTexts.push(sortedLines.join('\n'));
   }
-  return texts.join('\n');
+
+  return pageTexts.join('\n');
 }
 
 // ── DOCX text extraction via mammoth ────────────────────────────────────────
