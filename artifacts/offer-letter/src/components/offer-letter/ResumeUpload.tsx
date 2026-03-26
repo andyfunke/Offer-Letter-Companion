@@ -38,16 +38,21 @@ function parseResumeText(text: string) {
   const emailMatch = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
   const email = emailMatch ? emailMatch[0] : '';
 
-  // Name: take first non-blank line that looks like a name (2-4 words, no digits or symbols)
+  // Name: take first non-blank line that looks like a personal name (2–4 words, no digits/symbols/geography)
   const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
   let fullName = '';
-  for (const line of lines.slice(0, 10)) {
+
+  // Patterns that indicate the line is NOT a name
+  const NOT_NAME = /\d|@|http|\.com|Street|Ave|Blvd|Dr\.|Suite|Floor|P\.?O\.\s*Box|Apt\.?|Unit\s|\bWA\b|\bOR\b|\bCA\b|\bBC\b|\bAB\b|\bON\b|\bNY\b|\bTX\b|\bFL\b|\bCO\b|\bID\b|\bMT\b|\bUT\b|\bNV\b|\bAZ\b|\bNM\b|\bState\b|\bCounty\b|\bCity\b|LinkedIn|GitHub|Portfolio|Summary|Objective|Experience|Education|Skills|References|Profile|Resume|Curriculum/i;
+
+  for (const line of lines.slice(0, 12)) {
     const words = line.split(/\s+/);
     if (
       words.length >= 2 &&
       words.length <= 4 &&
-      /^[A-ZÀ-Ý]/.test(line) &&
-      !/\d|@|http|\.com|Street|Ave|Blvd|Dr\.|Suite|Floor/.test(line)
+      /^[A-ZÀ-Ý]/.test(line) &&           // starts with uppercase
+      !/[,|•·–\-\/\\]/.test(line) &&       // no punctuation typical of address/header lines
+      !NOT_NAME.test(line)
     ) {
       fullName = line;
       break;
@@ -215,26 +220,6 @@ export function ResumeUpload() {
                   </p>
                 </div>
               </div>
-
-              {/* Location-based banners — shown but NOT auto-activated */}
-              {resumeData.isWA && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-900">
-                  <p className="font-semibold mb-1">Local to Washington State</p>
-                  <p className="text-sm opacity-90">Candidate appears local to WA. Configure relocation module?</p>
-                </div>
-              )}
-              {!resumeData.isWA && !resumeData.isCanada && hasLocation && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900">
-                  <p className="font-semibold mb-1">Non-Local Candidate</p>
-                  <p className="text-sm opacity-90">Candidate appears non-local. Configure relocation module?</p>
-                </div>
-              )}
-              {resumeData.isCanada && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900">
-                  <p className="font-semibold mb-1">Canadian Location Detected</p>
-                  <p className="text-sm opacity-90">Candidate appears to be in Canada. Configure immigration template?</p>
-                </div>
-              )}
 
               <p className="text-xs text-muted-foreground">
                 You can correct any field directly in the form. These values are pre-filled but editable.
