@@ -1,0 +1,290 @@
+Build a Kinross Offer Letter Companion app.
+
+Purpose
+This app is a deterministic internal tool for assembling Kinross offer letters and related outputs from approved templates, structured form inputs, saved template profiles, and recruiter confirmations.
+
+Core product rules
+1. Do not let AI draft legal language from scratch.
+2. Require resume upload before offer generation.
+3. Use uploaded templates as the only source of coded scenario logic.
+4. If a scenario is not represented in the provided files, do not implement it yet.
+5. Support field removal as a first-class feature. If a field is removed as not applicable, all dependent clauses must also be removed from the output.
+6. Support saved template profiles so users can preserve real-world idiosyncratic variants by site, scenario, or recruiter preference.
+7. Generate final output on company letterhead with numbered pages, following the Juan Estrada example as the completed-format reference.
+8. Generate a browser-agent payload so Claude can perform mechanical execution only.
+
+SUPPORTED MVP SCENARIOS
+Implement only scenarios directly represented by uploaded files:
+
+- new_hire_hourly
+- new_hire_salaried
+- salaried_fixed_term_external
+- internship
+- promotion_hourly_role_change
+- promotion_hourly_to_salary
+- site_to_site_transfer_salary
+- relocation_repayment_agreement
+
+Do not implement unsupported scenarios yet.
+
+RESUME INGEST REQUIREMENT
+Before the offer form begins, require candidate resume upload.
+
+Parse from resume:
+- legal full name
+- email address
+- present city/state/country if available
+
+Use parsed location to trigger recommendation prompts:
+- If location appears to be Washington, prompt:
+  “Candidate appears local to WA. Configure relocation module?”
+- If location appears to be another U.S. state or another country, prompt:
+  “Candidate appears non-local. Configure relocation module?”
+- If location appears to be Canada, prompt:
+  “Candidate appears to be in Canada. Configure immigration template?”
+Do not auto-activate these modules without user confirmation.
+
+FORM MODEL
+
+Section 1: Candidate
+- candidate_full_name
+- candidate_email
+- letter_date
+- acceptance_deadline
+- delivery_method
+- mailing_or_email_destination
+
+Section 2: Employment details
+- scenario_type
+- job_title
+- site_name
+- subsidiary_name
+- site_location
+- reports_to_title
+- start_date
+- governing_state
+
+Section 3: Compensation
+- pay_basis
+- annual_salary_input
+- hourly_rate_input
+- biweekly_amount_output
+- annualized_salary_output
+- compensation_normalization_preview
+- stip_applicable
+- stip_target_percent
+- hourly_bonus_applicable
+- geographic_pay_applicable
+- geographic_pay_text
+- housing_benefit_applicable
+- housing_benefit_text
+
+Section 4: PTO
+- pto_default_value
+- pto_confirmed_value
+- pto_tenure_exception_toggle
+- pto_exception_reason
+
+Section 5: Benefits and retirement
+- benefits_guide_attached
+- retirement_clause_variant
+- espp_applicable
+- espp_wording_variant
+
+Section 6: Relocation and immigration
+- relocation_applicable
+- relocation_policy_attached
+- relocation_repayment_agreement_required
+- relocation_origin
+- relocation_destination
+- immigration_applicable
+- immigration_partner_name
+- international_tax_support_required
+
+Section 7: Contingencies
+- background_check_required
+- drug_screen_required
+- physical_required
+- work_authorization_clause_required
+
+Section 8: Signoff
+- hr_contact_name
+- hr_contact_title
+- hr_contact_email
+- company_representative_name
+- company_representative_title
+
+FIELD APPLICABILITY ENGINE
+Every field must support three states:
+- active
+- removed as not applicable
+- inherited from template profile
+
+If a field is removed, dependent clause blocks must be removed automatically.
+
+Example:
+- relocation_applicable = removed
+  -> remove relocation clause
+  -> remove relocation repayment agreement attachment
+  -> remove relocation prompts
+- stip_applicable = removed
+  -> remove STIP clause
+- geographic_pay_applicable = removed
+  -> remove geo premium clause
+
+TEMPLATE PROFILE SYSTEM
+Support:
+1. System default profiles generated from current instructions
+2. User-saved profiles that preserve:
+   - active/removed fields
+   - clause wording variants
+   - retirement variant
+   - ESPP wording preference
+   - site-specific letterhead
+   - contingency defaults
+   - PTO defaults by scenario
+
+Each saved template profile should include:
+- profile_name
+- base_scenario
+- site
+- active_fields
+- removed_fields
+- clause_variant_ids
+- letterhead_id
+- output_order
+- default_signers
+- default_hr_contact
+
+COMPENSATION NORMALIZATION RULE
+For salaried scenarios:
+1. Convert entered annual salary to hourly equivalent using 2080 hours
+2. Round hourly equivalent up according to payroll rule
+3. Recompute annual salary from rounded hourly equivalent * 2080
+4. Recompute biweekly pay from normalized annual salary / 26
+5. Show the raw input and normalized values before confirmation
+
+For hourly scenarios:
+- store hourly rate directly
+- do not apply salaried normalization logic
+
+PTO LOGIC
+Do not auto-select PTO based on parsed resume tenure.
+Instead:
+- display the default PTO for the selected template profile
+- show toggle: “Apply service/experience tenure exception”
+- if toggled on, require user to confirm or enter the adjusted PTO value
+- require explicit user confirmation before generation
+
+RETIREMENT CLAUSE LOGIC
+Retirement language must be template-bound, not inferred globally.
+Default variant should match current benefits guide and the majority of current completed templates:
+- automatic enrollment first of month following hire
+- match first of month following hire
+- additional 4% contribution first of month following six months of service
+
+Allow saved template profiles to preserve alternate legacy wording, such as Juan-style hourly letter wording.
+
+ESPP CLAUSE LOGIC
+Support wording variants:
+- neutral_no_vendor
+- shareworks
+- morgan_stanley
+
+Default should be configurable.
+Do not force vendor naming into the final output unless the chosen template profile specifies it.
+
+LETTERHEAD RULE
+Final export must use company letterhead and numbered pages.
+Use Juan Estrada as the finished layout reference.
+Do not leave instructional text like “Please transfer template to company letterhead” in the final output.
+
+CLAUSE ENGINE
+Assemble final letters from clause blocks.
+Each clause block must have:
+- id
+- scenario applicability
+- required fields
+- removable flag
+- output order
+- content template
+- dependencies
+
+Example clause ids:
+- opening_new_hire_hourly
+- opening_new_hire_salaried
+- opening_intern
+- opening_transfer_salary
+- opening_promotion_hourly_role_change
+- opening_promotion_hourly_to_salary
+- comp_hourly
+- comp_salary
+- comp_biweekly_preview
+- pto_hourly
+- pto_salary
+- bonus_hourly
+- stip_clause
+- relocation_clause
+- immigration_clause
+- international_tax_support_clause
+- retirement_clause_current
+- retirement_clause_legacy_hourly
+- espp_clause_neutral
+- espp_clause_shareworks
+- espp_clause_morgan_stanley
+- housing_clause
+- geo_premium_clause
+- contingencies_background_drug_physical
+- work_authorization_clause
+- all_other_terms_unchanged_clause
+- confidentiality_clause
+- conflicts_clause
+- inventions_clause
+- no_conflict_with_other_obligations_clause
+- at_will_clause
+- governing_law_clause
+- acceptance_block
+- signature_block
+
+BROWSER EXECUTION PAYLOAD
+Generate a structured output for Claude/browser execution:
+{
+  "scenario": "...",
+  "templateProfile": "...",
+  "candidate": {...},
+  "resolvedFields": {...},
+  "removedFields": [...],
+  "clauses": [
+    {"id":"opening_new_hire_hourly","content":"..."},
+    {"id":"comp_hourly","content":"..."}
+  ],
+  "attachments": [...],
+  "letterhead": "...",
+  "exportNotes": [...]
+}
+
+Claude should use this payload only to place approved content into the browser workflow.
+
+VALIDATION
+Block generation if:
+- required resume not uploaded
+- candidate name missing
+- candidate email missing
+- PTO not confirmed
+- governing state missing
+- compensation basis unresolved
+- compensation values unresolved
+- relocation selected but repayment agreement details unresolved
+- immigration selected but immigration details unresolved
+- a required clause dependency is missing
+
+UI
+- left rail: scenario and saved template profile
+- center: form sections
+- right: live preview
+- unresolved decisions counter at top
+- “remove from consideration” controls on each optional field
+- recommendation banners for relocation / immigration based on resume location
+- “save this as template profile”
+- “export final letter”
+- “copy Claude execution payload”

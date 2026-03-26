@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Kinross Offer Letter Companion"
+version = "1.0.0"
+id = "artifacts/offer-letter"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23238
+
+[services.development]
+run = "pnpm --filter @workspace/offer-letter run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/offer-letter", "run", "build" ]
+publicDir = "artifacts/offer-letter/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23238"
+BASE_PATH = "/"

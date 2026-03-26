@@ -1,0 +1,20 @@
+packages:
+  "framer-motion": "Smooth animations for form sections, applicability toggles, and modal transitions"
+  "date-fns": "Date formatting and manipulation for offer deadlines and start dates"
+  "lucide-react": "Clean, consistent iconography for the professional enterprise interface"
+  "clsx": "Utility for constructing CSS class strings conditionally"
+  "tailwind-merge": "Utility for merging Tailwind CSS classes without style conflicts"
+  "@radix-ui/react-accordion": "Accessible accordion component for the multi-section form layout"
+
+images:
+  - path: "artifacts/offer-letter/public/images/kinross-logo-placeholder.png"
+    description: "A professional, minimalist corporate logo mark for an enterprise mining company, utilizing geometric shapes in gold/amber and deep slate gray, transparent background"
+    aspect_ratio: "1:1"
+  - path: "artifacts/offer-letter/public/images/auth-bg.png"
+    description: "An elegant, subtle abstract background featuring soft gradients of warm cream, slate gray, and muted gold, creating a premium professional enterprise atmosphere"
+    aspect_ratio: "16:9"
+
+notes:
+  - Using the provided React Query hooks from @workspace/api-client-react for all API interactions as specified in the workspace rules.
+  - State management uses a centralized React Context to handle the highly interdependent field applicability and clause generation rules.
+  - The live preview uses standard HTML/CSS formatting designed to match typical A4/Letter dimensions.
