@@ -1,15 +1,25 @@
 import { useState, FormEvent } from 'react';
+import { useLocation } from 'wouter';
 import { useAuth, apiBase } from '@/hooks/use-auth';
 import { Shield, Eye, EyeOff, Loader2, CheckCircle, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-type Step = 'form' | 'done';
+function passwordStrength(pw: string): { label: string; color: string; pct: number } {
+  if (!pw) return { label: '', color: 'bg-muted', pct: 0 };
+  const checks = [pw.length >= 12, /[A-Z]/.test(pw), /[a-z]/.test(pw), /[0-9]/.test(pw), /[^A-Za-z0-9]/.test(pw)];
+  const score = checks.filter(Boolean).length;
+  if (score <= 2) return { label: 'Weak', color: 'bg-red-500', pct: 33 };
+  if (score <= 3) return { label: 'Fair', color: 'bg-amber-500', pct: 60 };
+  if (score === 4) return { label: 'Good', color: 'bg-blue-500', pct: 80 };
+  return { label: 'Strong', color: 'bg-emerald-500', pct: 100 };
+}
 
 export default function Setup() {
   const { completeSetup } = useAuth();
-  const [step, setStep] = useState<Step>('form');
+  const [, navigate] = useLocation();
+
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,35 +27,14 @@ export default function Setup() {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  function passwordStrength(pw: string): { label: string; color: string; pct: number } {
-    if (pw.length === 0) return { label: '', color: 'bg-muted', pct: 0 };
-    const checks = [
-      pw.length >= 12,
-      /[A-Z]/.test(pw),
-      /[a-z]/.test(pw),
-      /[0-9]/.test(pw),
-      /[^A-Za-z0-9]/.test(pw),
-    ];
-    const score = checks.filter(Boolean).length;
-    if (score <= 2) return { label: 'Weak', color: 'bg-red-500', pct: 33 };
-    if (score <= 3) return { label: 'Fair', color: 'bg-amber-500', pct: 60 };
-    if (score === 4) return { label: 'Good', color: 'bg-blue-500', pct: 80 };
-    return { label: 'Strong', color: 'bg-emerald-500', pct: 100 };
-  }
+  const [done, setDone] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
 
-    if (password !== confirm) {
-      setError('Passwords do not match.');
-      return;
-    }
-    if (password.length < 12) {
-      setError('Password must be at least 12 characters.');
-      return;
-    }
+    if (password !== confirm) { setError('Passwords do not match.'); return; }
+    if (password.length < 12) { setError('Password must be at least 12 characters.'); return; }
 
     setLoading(true);
     try {
@@ -60,13 +49,12 @@ export default function Setup() {
         }),
       });
       const json = await r.json();
-      if (!r.ok) {
-        setError(json.error ?? 'Setup failed. Please try again.');
-        return;
-      }
-      // API auto-logs in after setup
+      if (!r.ok) { setError(json.error ?? 'Setup failed.'); return; }
+
+      // Mark done, update auth context, then navigate into the app
+      setDone(true);
       completeSetup(json);
-      setStep('done');
+      setTimeout(() => navigate('/'), 1400);
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -75,60 +63,63 @@ export default function Setup() {
   }
 
   const strength = passwordStrength(password);
+  const canSubmit = username.trim().length >= 2 && password.length >= 12 && password === confirm && !loading;
 
-  if (step === 'done') {
+  // ── Success flash ───────────────────────────────────────────────────────
+  if (done) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center max-w-sm">
-          <div className="inline-flex w-16 h-16 items-center justify-center rounded-full bg-emerald-100 mb-6">
-            <CheckCircle className="w-8 h-8 text-emerald-600" />
+        <div className="text-center max-w-xs">
+          <div className="inline-flex w-16 h-16 items-center justify-center rounded-full bg-emerald-100 mb-5 animate-in zoom-in duration-300">
+            <CheckCircle className="w-9 h-9 text-emerald-600" />
           </div>
-          <h1 className="font-serif text-2xl font-bold mb-2">You're all set</h1>
-          <p className="text-muted-foreground text-sm mb-8">
-            Your admin account has been created and you're signed in. Welcome to the Kinross Offer Letter Companion.
-          </p>
-          <Button className="w-full" onClick={() => window.location.href = '/'}>
-            Go to app →
-          </Button>
+          <h1 className="font-serif text-2xl font-bold mb-2">Account created</h1>
+          <p className="text-muted-foreground text-sm">Signing you in…</p>
         </div>
       </div>
     );
   }
 
+  // ── Setup form ──────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-7">
           <div className="inline-flex w-14 h-14 items-center justify-center rounded-full bg-primary/10 mb-4">
             <Shield className="w-7 h-7 text-primary" />
           </div>
           <h1 className="font-serif text-2xl font-bold">Welcome to Kinross HR</h1>
-          <p className="text-muted-foreground text-sm mt-1">Let's create your admin account to get started.</p>
+          <p className="text-muted-foreground text-sm mt-1.5">
+            Create your admin account to get started.
+          </p>
         </div>
 
-        {/* Progress indicator */}
-        <div className="flex items-center gap-2 mb-6">
-          <div className="flex-1 h-1.5 rounded-full bg-primary" />
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Step 1 of 1</span>
-          <div className="flex-1 h-1.5 rounded-full bg-muted" />
+        {/* "First time only" badge */}
+        <div className="flex items-center gap-2 justify-center mb-6">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground px-2 whitespace-nowrap flex items-center gap-1.5">
+            <Lock className="w-3 h-3" /> One-time setup
+          </span>
+          <div className="h-px flex-1 bg-border" />
         </div>
 
         <Card className="shadow-xl">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Lock className="w-4 h-4 text-primary" />
-              Create First Admin Account
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              This account will have full system access. You can create more users afterward.
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Create First Admin Account</CardTitle>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              This account has full system access. You can add more users from the admin panel afterward.
             </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+
+              {/* Username */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Username <span className="text-destructive">*</span></label>
+                <label className="text-sm font-medium">
+                  Username <span className="text-destructive">*</span>
+                </label>
                 <Input
                   value={username}
                   onChange={e => setUsername(e.target.value)}
@@ -136,12 +127,16 @@ export default function Setup() {
                   placeholder="e.g. admin"
                   required
                   disabled={loading}
+                  autoFocus
                 />
                 <p className="text-xs text-muted-foreground">Letters, numbers, _ . - only</p>
               </div>
 
+              {/* Email */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Email <span className="text-muted-foreground text-xs">(optional)</span></label>
+                <label className="text-sm font-medium">
+                  Email <span className="text-muted-foreground text-xs font-normal">(optional)</span>
+                </label>
                 <Input
                   type="email"
                   value={email}
@@ -152,8 +147,11 @@ export default function Setup() {
                 />
               </div>
 
+              {/* Password */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Password <span className="text-destructive">*</span></label>
+                <label className="text-sm font-medium">
+                  Password <span className="text-destructive">*</span>
+                </label>
                 <div className="relative">
                   <Input
                     type={showPw ? 'text' : 'password'}
@@ -192,8 +190,11 @@ export default function Setup() {
                 )}
               </div>
 
+              {/* Confirm */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Confirm Password <span className="text-destructive">*</span></label>
+                <label className="text-sm font-medium">
+                  Confirm Password <span className="text-destructive">*</span>
+                </label>
                 <Input
                   type={showPw ? 'text' : 'password'}
                   value={confirm}
@@ -208,31 +209,29 @@ export default function Setup() {
                 )}
               </div>
 
+              {/* Error */}
               {error && (
                 <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
                   {error}
                 </div>
               )}
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={loading || !username || !password || password !== confirm}
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Create account and continue
+              {/* Submit */}
+              <Button type="submit" className="w-full" disabled={!canSubmit}>
+                {loading
+                  ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating account…</>
+                  : 'Create account and continue →'
+                }
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <div className="mt-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex gap-2">
-          <Lock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
-          <span>
-            This screen only appears once, when no accounts exist.
-            After setup, access is restricted to authenticated users only.
-          </span>
-        </div>
+        {/* Footer note */}
+        <p className="text-center text-xs text-muted-foreground mt-5 leading-relaxed">
+          This screen only appears once. After setup, the app requires login and
+          is restricted to authorized Kinross HR personnel.
+        </p>
       </div>
     </div>
   );

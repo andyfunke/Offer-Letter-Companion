@@ -28,5 +28,3 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.development]
-BOOTSTRAP_ADMIN_USERNAME = "admin"
-BOOTSTRAP_ADMIN_PASSWORD = "wemineforgold!23"
