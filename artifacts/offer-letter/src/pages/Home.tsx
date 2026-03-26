@@ -141,7 +141,7 @@ function OfferEditor() {
                     <FieldWrapper id="letter_date" label="Letter Date" optional>
                       <Input type="date" value={state.formData.letter_date || ''} onChange={e => setField('letter_date', e.target.value)} />
                     </FieldWrapper>
-                    <FieldWrapper id="acceptance_deadline" label="Acceptance Deadline" optional>
+                    <FieldWrapper id="acceptance_deadline" label="Please return this offer letter by">
                       <Input type="date" value={state.formData.acceptance_deadline || ''} onChange={e => setField('acceptance_deadline', e.target.value)} />
                     </FieldWrapper>
                   </div>

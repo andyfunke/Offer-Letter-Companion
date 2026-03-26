@@ -30,6 +30,15 @@ type OfferAction =
   | { type: 'CONFIRM_PTO' }
   | { type: 'RESET' };
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+function plusDaysISO(n: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 const initialState: OfferState = {
   step: 'upload',
   resumeData: null,
@@ -38,6 +47,11 @@ const initialState: OfferState = {
     scenario_type: 'new_hire_salaried',
     pay_basis: 'salaried',
     background_check_required: true,
+    letter_date: todayISO(),
+    acceptance_deadline: plusDaysISO(8),
+    site_name: 'Echo Bay Minerals',
+    site_location: 'Republic, WA',
+    governing_state: 'WA',
   },
   fieldStates: {},
   unresolvedDecisions: 0,
