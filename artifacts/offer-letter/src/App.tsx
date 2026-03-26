@@ -4,20 +4,24 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/not-found";
+import SecurityPolicy from "@/pages/SecurityPolicy";
+import AdminSecuritySpec from "@/pages/AdminSecuritySpec";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
-    }
-  }
+    },
+  },
 });
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/security" component={SecurityPolicy} />
+      <Route path="/admin/security-spec" component={AdminSecuritySpec} />
       <Route component={NotFound} />
     </Switch>
   );

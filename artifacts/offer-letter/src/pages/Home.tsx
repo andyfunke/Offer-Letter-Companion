@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'wouter';
 import { useOfferStore, OfferProvider } from '@/hooks/use-offer-store';
 import { ResumeUpload } from '@/components/offer-letter/ResumeUpload';
 import { LetterPreview } from '@/components/offer-letter/LetterPreview';
@@ -12,7 +13,7 @@ import { useListTemplates, useCreateOffer } from '@workspace/api-client-react';
 import { format } from 'date-fns';
 import {
   Briefcase, Building2, Calendar, CheckCircle, ChevronRight, FileCheck, FileText, 
-  MapPin, Settings2, User, Wallet, Save, Download, FileJson, AlertCircle
+  MapPin, Settings2, User, Wallet, Save, Download, FileJson, AlertCircle, Shield, LogOut
 } from 'lucide-react';
 import * as Accordion from '@radix-ui/react-accordion';
 import { useToast } from '@/hooks/use-toast';
@@ -62,7 +63,15 @@ function OfferEditor() {
       {/* Left Rail: Scenarios & Templates */}
       <div className="w-64 border-r bg-card flex flex-col z-10 shrink-0">
         <div className="p-4 border-b">
-          <Button variant="default" className="w-full justify-start gap-2 bg-foreground text-background hover:bg-foreground/90">
+          <Button
+            variant="default"
+            className="w-full justify-start gap-2 bg-foreground text-background hover:bg-foreground/90"
+            onClick={() => {
+              if (confirm('Start a new letter? This will clear the current session.')) {
+                dispatch({ type: 'RESET' });
+              }
+            }}
+          >
             <FileText className="w-4 h-4" /> New Letter
           </Button>
         </div>
@@ -81,6 +90,16 @@ function OfferEditor() {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t p-3 mt-auto">
+          <Link href="/security" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <Shield className="w-3.5 h-3.5" /> Security & Privacy Policy
+          </Link>
+          <Link href="/admin/security-spec" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1">
+            <Shield className="w-3.5 h-3.5" /> Admin: Security Spec
+          </Link>
         </div>
       </div>
 
@@ -103,6 +122,19 @@ function OfferEditor() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Clear all session data"
+              onClick={() => {
+                if (confirm('Clear all session data? This cannot be undone.')) {
+                  dispatch({ type: 'RESET' });
+                  toast({ title: 'Session Cleared', description: 'All candidate and offer data has been removed from this session.' });
+                }
+              }}
+            >
+              <LogOut className="w-4 h-4 mr-2" /> Clear Session
+            </Button>
             <Button variant="ghost" size="sm" onClick={handleCopyPayload} title="Copy Claude Payload">
               <FileJson className="w-4 h-4 mr-2" /> Payload
             </Button>
@@ -118,6 +150,17 @@ function OfferEditor() {
         {/* Form Area */}
         <div className="flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="max-w-3xl mx-auto">
+
+            {/* Security / data classification notice */}
+            <div className="flex items-center gap-3 px-4 py-2.5 mb-6 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
+              <Shield className="w-4 h-4 shrink-0 text-blue-600" />
+              <span>
+                <strong>Internal tool — confidential data.</strong> Candidate and compensation information is processed locally.
+                No data is transmitted to AI services.{' '}
+                <Link href="/security" className="underline hover:text-blue-900">View security policy →</Link>
+              </span>
+            </div>
+
             <Accordion.Root type="multiple" defaultValue={["candidate", "employment", "comp"]} className="space-y-4">
               
               {/* SECTION: CANDIDATE */}

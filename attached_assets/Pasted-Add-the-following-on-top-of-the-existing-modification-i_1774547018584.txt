@@ -1,0 +1,307 @@
+Add the following **on top of the existing modification instructions** in Replit. This extends the current app with formal security posture, policy surface, and compliance alignment. Do not replace prior instructions. This is an additive layer.
+
+---
+
+```text
+==================================================
+SECURITY / PRIVACY POLICY + COMPLIANCE EXTENSION
+==================================================
+
+Extend the existing application with a formalized security and compliance layer.
+
+This includes:
+1. A user-facing Security & Privacy Policy page
+2. An internal Technical Security Specification page
+3. Alignment with recognized security frameworks
+4. Additional implementation requirements to meet those frameworks
+
+This is not optional documentation. The implementation must match the claims.
+
+==================================================
+PART 1: USER-FACING SECURITY & PRIVACY POLICY PAGE
+==================================================
+
+Create a dedicated route:
+- /security
+- accessible from footer and main navigation
+
+This page must be written in clear professional language (not legalese overload) and describe:
+
+A. DATA COLLECTION
+- What data is processed:
+  - candidate name
+  - email
+  - resume contents
+  - compensation data
+  - employment details
+- State that data is only collected to generate offer documents.
+
+B. DATA USAGE
+- Data is used strictly for:
+  - offer letter generation
+  - template population
+  - recruiter workflow support
+- No secondary use, no analytics profiling of candidates.
+
+C. DATA STORAGE
+- Data is encrypted at rest.
+- Data is encrypted in transit.
+- Data retention is minimal and configurable.
+- Temporary files are deleted automatically unless explicitly retained.
+
+D. DATA RETENTION
+- Clearly describe:
+  - resumes are deleted after parsing unless saved
+  - generated documents are temporary unless exported
+  - sessions expire automatically
+- Mention configurable retention windows.
+
+E. DATA ACCESS
+- Role-based access control is enforced.
+- Only authorized users can access candidate or compensation data.
+- All access is logged.
+
+F. DATA DELETION
+- Users can:
+  - clear session data
+  - delete candidate data
+  - delete generated documents
+- System enforces automatic cleanup policies.
+
+G. SECURITY CONTROLS
+- Encryption
+- secure session management
+- audit logging
+- strict input validation
+- file handling protections
+
+H. NO AI PROCESSING
+- Explicitly state:
+  “This system does not transmit candidate or compensation data to external AI services or third-party language models.”
+
+I. INCIDENT RESPONSE
+- State that access attempts, failures, and sensitive operations are logged and monitored.
+
+J. COMPLIANCE POSITIONING
+- State alignment with:
+  - SOC 2 principles (security, availability, confidentiality)
+  - OWASP Top 10 protections
+  - general data minimization and privacy-by-design principles
+
+Do not claim certification unless actually certified.
+Use wording like:
+“Designed in alignment with…” not “Certified compliant”.
+
+==================================================
+PART 2: INTERNAL TECHNICAL SECURITY SPEC PAGE
+==================================================
+
+Create admin-only route:
+- /admin/security-spec
+
+This page documents the actual implementation details.
+
+Include:
+
+A. ENCRYPTION DETAILS
+- Algorithm used (AES-256 or equivalent)
+- Key management approach (env secrets)
+- Which fields are encrypted
+
+B. SESSION MANAGEMENT
+- cookie configuration
+- TTL
+- idle timeout
+- rotation behavior
+
+C. AUTHORIZATION MODEL
+- roles
+- permission matrix
+- enforcement strategy
+
+D. AUDIT LOGGING
+- what is logged
+- what is redacted
+- storage approach
+- immutability approach
+
+E. FILE SECURITY
+- storage location
+- naming strategy
+- MIME validation
+- deletion lifecycle
+
+F. VALIDATION LAYER
+- schema validation approach
+- server-side enforcement
+- sanitization strategy
+
+G. RATE LIMITING
+- thresholds
+- enforcement mechanism
+
+H. SECURITY HEADERS
+- CSP
+- XSS protections
+- frame restrictions
+
+I. RETENTION ENGINE
+- default durations
+- purge mechanism
+- override controls
+
+J. KNOWN LIMITATIONS
+- explicitly list anything not yet fully hardened
+
+==================================================
+PART 3: FRAMEWORK ALIGNMENT REQUIREMENTS
+==================================================
+
+Modify implementation so the app aligns with:
+
+1. OWASP Top 10 (Required)
+2. SOC 2 Security Principles (Design Alignment)
+3. Basic GDPR-style principles (Data minimization, deletion, access transparency)
+
+Do NOT claim formal certification.
+
+==================================================
+PART 4: REQUIRED IMPLEMENTATION UPGRADES FOR COMPLIANCE
+==================================================
+
+Apply the following upgrades to meet those frameworks:
+
+A. OWASP TOP 10 COVERAGE
+
+1. Injection
+- Parameterize all queries
+- sanitize all inputs
+- no direct string interpolation into queries or templates
+
+2. Broken Authentication
+- enforce secure session tokens
+- rotate session IDs
+- rate limit login attempts
+
+3. Sensitive Data Exposure
+- encrypt sensitive fields
+- never log raw PII or compensation data
+
+4. XML/Parser Abuse
+- harden document parsing
+- restrict file size and type
+- prevent entity expansion attacks
+
+5. Broken Access Control
+- enforce server-side RBAC on every route
+- never trust client role
+
+6. Security Misconfiguration
+- centralize config
+- disable debug in production
+- fail closed if secrets missing
+
+7. XSS
+- sanitize all rendered content
+- escape output in preview
+
+8. Insecure Deserialization
+- validate all structured inputs
+- avoid unsafe object parsing
+
+9. Using Components with Known Vulnerabilities
+- pin dependencies
+- add dependency audit step
+
+10. Logging & Monitoring Failures
+- implement audit logs
+- track sensitive operations
+
+B. SOC 2 STYLE CONTROLS (DESIGN LEVEL)
+
+- Access control enforced
+- Audit trails exist
+- Data encryption enforced
+- Least privilege model
+- Change tracking for admin actions
+
+C. PRIVACY PRINCIPLES
+
+- Data minimization enforced
+- User-controlled deletion
+- Transparent data usage
+- No unnecessary retention
+
+==================================================
+PART 5: SECURITY CONFIG ENFORCEMENT
+==================================================
+
+Extend existing /config/security.ts with:
+
+- retention windows
+- encryption flags
+- session TTL
+- idle timeout
+- allowed file types
+- max file size
+- rate limit thresholds
+- audit redaction rules
+
+Application must fail to start if required security config is missing.
+
+==================================================
+PART 6: UI ADDITIONS
+==================================================
+
+Add:
+
+Footer:
+- link to Security & Privacy page
+
+Admin panel:
+- link to Technical Security Spec page
+
+User controls:
+- clear session data
+- delete candidate data
+- delete generated documents
+
+Display:
+- retention policy summary in UI
+- security notice banner (internal tool, sensitive data)
+
+==================================================
+PART 7: VERIFICATION STEP
+==================================================
+
+After implementation, output:
+
+1. List of security controls implemented
+2. Mapping of controls to OWASP categories
+3. Confirmation that:
+   - no LLM usage exists
+   - encryption is applied
+   - RBAC enforced
+   - audit logging active
+4. Any gaps remaining
+
+==================================================
+NON-NEGOTIABLE ADDITIONS
+==================================================
+
+- Do not claim certifications falsely
+- Do not expose internal security details publicly beyond policy-level page
+- Do not weaken existing hardening for convenience
+- Do not allow insecure fallback modes
+- Prefer blocking behavior over unsafe behavior
+```
+
+---
+
+This gives you three things simultaneously:
+
+* something you can show leadership or compliance without embarrassment
+* something that actually matches how the system behaves
+* and a structure that could realistically pass an internal audit if this ever becomes a real system
+
+If you want next, I can compress this into a one-page “send to IT/security” version that reads like a formal approval request.
