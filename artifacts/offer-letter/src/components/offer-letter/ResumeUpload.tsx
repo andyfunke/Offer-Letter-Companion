@@ -1,47 +1,189 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, DragEvent, ChangeEvent } from 'react';
 import { useOfferStore } from '@/hooks/use-offer-store';
-import { UploadCloud, FileText, Loader2, MapPin } from 'lucide-react';
+import { UploadCloud, FileText, Loader2, MapPin, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 
-export function ResumeUpload() {
-  const { dispatch } = useOfferStore();
-  const [isUploading, setIsUploading] = useState(false);
-  const [parseStep, setParseStep] = useState(0);
+// ── PDF text extraction via pdfjs-dist ──────────────────────────────────────
+async function extractTextFromPdf(file: File): Promise<string> {
+  const pdfjsLib = await import('pdfjs-dist');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url,
+  ).toString();
 
-  const handleSimulateUpload = () => {
-    setIsUploading(true);
-    
-    // Simulate multi-step parsing
-    setTimeout(() => setParseStep(1), 800);
-    setTimeout(() => setParseStep(2), 1600);
-    setTimeout(() => {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const texts: string[] = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    texts.push(content.items.map((item: any) => item.str).join(' '));
+  }
+  return texts.join('\n');
+}
+
+// ── DOCX text extraction via mammoth ────────────────────────────────────────
+async function extractTextFromDocx(file: File): Promise<string> {
+  const mammoth = await import('mammoth');
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value;
+}
+
+// ── Parse candidate fields from plain text ──────────────────────────────────
+function parseResumeText(text: string) {
+  // Email
+  const emailMatch = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  const email = emailMatch ? emailMatch[0] : '';
+
+  // Name: take first non-blank line that looks like a name (2-4 words, no digits or symbols)
+  const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+  let fullName = '';
+  for (const line of lines.slice(0, 10)) {
+    const words = line.split(/\s+/);
+    if (
+      words.length >= 2 &&
+      words.length <= 4 &&
+      /^[A-ZÀ-Ý]/.test(line) &&
+      !/\d|@|http|\.com|Street|Ave|Blvd|Dr\.|Suite|Floor/.test(line)
+    ) {
+      fullName = line;
+      break;
+    }
+  }
+
+  // Location: look for city/state patterns
+  const locationPatterns = [
+    /\b([A-Z][a-zA-Z\s]+),\s*(BC|AB|ON|QC|SK|MB|NS|NB|PE|NL|YT|NT|NU)\b/,   // Canadian province
+    /\b([A-Z][a-zA-Z\s]+),\s*(WA|OR|CA|AZ|TX|NY|FL|CO|NV|ID|MT|UT|GA|NC|VA|PA|OH|MI|IL|MN|MO|TN|AL|LA|AR|KY|IN|WI|IA|OK|KS|NE|SD|ND|WY|NM|AK|HI|DE|MD|DC|CT|RI|VT|NH|ME|WV|MS)\b/i,  // US state abbrev
+  ];
+  let location = '';
+  let isCanada = false;
+  let isWA = false;
+
+  for (const pattern of locationPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      location = match[0];
+      const stateOrProvince = match[2].toUpperCase();
+      isCanada = ['BC', 'AB', 'ON', 'QC', 'SK', 'MB', 'NS', 'NB', 'PE', 'NL', 'YT', 'NT', 'NU'].includes(stateOrProvince);
+      isWA = stateOrProvince === 'WA';
+      break;
+    }
+  }
+
+  // Fallback: look for "Vancouver" or "Toronto" etc
+  if (!location) {
+    const canadianCities = /\b(Vancouver|Toronto|Calgary|Edmonton|Ottawa|Winnipeg|Quebec|Montreal|Halifax)\b/i;
+    const canadianMatch = text.match(canadianCities);
+    if (canadianMatch) {
+      location = canadianMatch[0];
+      isCanada = true;
+    }
+  }
+
+  return { email, fullName, location, isCanada, isWA };
+}
+
+const PARSE_STEPS = [
+  'Reading document…',
+  'Extracting text content…',
+  'Identifying candidate details…',
+  'Analyzing location…',
+];
+
+export function ResumeUpload() {
+  const { state, dispatch } = useOfferStore();
+  const resumeData = state.resumeData;
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [parseStepIdx, setParseStepIdx] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  const processFile = useCallback(async (file: File) => {
+    setError(null);
+    setIsProcessing(true);
+    setParseStepIdx(0);
+
+    try {
+      // Step 1
+      setParseStepIdx(0);
+      await new Promise(r => setTimeout(r, 300));
+
+      let text = '';
+      const ext = file.name.split('.').pop()?.toLowerCase();
+
+      setParseStepIdx(1);
+      if (ext === 'pdf') {
+        text = await extractTextFromPdf(file);
+      } else if (ext === 'docx') {
+        text = await extractTextFromDocx(file);
+      } else {
+        // Try reading as plain text
+        text = await file.text();
+      }
+
+      setParseStepIdx(2);
+      await new Promise(r => setTimeout(r, 200));
+
+      const parsed = parseResumeText(text);
+
+      setParseStepIdx(3);
+      await new Promise(r => setTimeout(r, 300));
+
       dispatch({
         type: 'SET_RESUME_DATA',
         payload: {
-          fullName: 'Jane Smith',
-          email: 'jane.smith@example.com',
-          location: 'Vancouver, BC',
-          isCanada: true,
-          isWA: false
-        }
+          fullName: parsed.fullName || '',
+          email: parsed.email || '',
+          location: parsed.location || '',
+          isCanada: parsed.isCanada,
+          isWA: parsed.isWA,
+        },
       });
-      setIsUploading(false);
-    }, 2400);
+    } catch (err: any) {
+      setError(`Could not parse file: ${err?.message ?? 'Unknown error'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [dispatch]);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+    // Reset input so same file can be selected again
+    e.target.value = '';
   };
 
-  const handleContinue = () => {
-    dispatch({ type: 'SET_STEP', payload: 'form' });
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
   };
 
-  const resumeData = useOfferStore().state.resumeData;
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
 
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleContinue = () => dispatch({ type: 'SET_STEP', payload: 'form' });
+
+  // ── Parsed result view ───────────────────────────────────────────────────
   if (resumeData) {
+    const hasLocation = Boolean(resumeData.location);
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] p-4">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }} 
+      <div className="flex items-center justify-center min-h-screen p-4 bg-background">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="w-full max-w-lg"
         >
@@ -52,33 +194,56 @@ export function ResumeUpload() {
                 Resume Parsed Successfully
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6 space-y-6">
+            <CardContent className="p-6 space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Candidate Name</p>
-                  <p className="text-lg font-semibold">{resumeData.fullName}</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Name</p>
+                  <p className="font-semibold">{resumeData.fullName || <span className="text-muted-foreground italic">Not detected</span>}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Email</p>
-                  <p className="text-lg font-semibold">{resumeData.email}</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Email</p>
+                  <p className="font-semibold break-all">{resumeData.email || <span className="text-muted-foreground italic">Not detected</span>}</p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-sm font-medium text-muted-foreground">Detected Location</p>
-                  <p className="text-lg font-semibold flex items-center gap-1">
-                    <MapPin className="w-4 h-4 text-primary" /> {resumeData.location}
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Detected Location</p>
+                  <p className="font-semibold flex items-center gap-1">
+                    {hasLocation ? (
+                      <><MapPin className="w-4 h-4 text-primary shrink-0" /> {resumeData.location}</>
+                    ) : (
+                      <span className="text-muted-foreground italic">Could not detect location</span>
+                    )}
                   </p>
                 </div>
               </div>
 
+              {/* Location-based banners — shown but NOT auto-activated */}
+              {resumeData.isWA && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-900">
+                  <p className="font-semibold mb-1">Local to Washington State</p>
+                  <p className="text-sm opacity-90">Candidate appears local to WA. Configure relocation module?</p>
+                </div>
+              )}
+              {!resumeData.isWA && !resumeData.isCanada && hasLocation && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900">
+                  <p className="font-semibold mb-1">Non-Local Candidate</p>
+                  <p className="text-sm opacity-90">Candidate appears non-local. Configure relocation module?</p>
+                </div>
+              )}
               {resumeData.isCanada && (
                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900">
                   <p className="font-semibold mb-1">Canadian Location Detected</p>
-                  <p className="text-sm opacity-90">The candidate appears to be in Canada. Would you like to configure the immigration template?</p>
+                  <p className="text-sm opacity-90">Candidate appears to be in Canada. Configure immigration template?</p>
                 </div>
               )}
 
-              <div className="flex gap-3 justify-end pt-4">
-                <Button variant="outline" onClick={() => dispatch({ type: 'RESET' })}>Start Over</Button>
+              <p className="text-xs text-muted-foreground">
+                You can correct any field directly in the form. These values are pre-filled but editable.
+              </p>
+
+              <div className="flex gap-3 justify-between pt-2">
+                <Button variant="outline" onClick={() => dispatch({ type: 'RESET' })}>
+                  Upload Different File
+                </Button>
                 <Button onClick={handleContinue} className="bg-primary hover:bg-primary/90">
                   Continue to Letter Setup
                 </Button>
@@ -90,38 +255,70 @@ export function ResumeUpload() {
     );
   }
 
+  // ── Upload view ──────────────────────────────────────────────────────────
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] p-4">
+    <div className="flex items-center justify-center min-h-screen p-4 bg-background">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center pb-2">
           <CardTitle className="text-2xl">Start New Offer Letter</CardTitle>
-          <p className="text-muted-foreground text-sm mt-2">Upload the candidate's resume to auto-fill details and configure initial letter constraints.</p>
+          <p className="text-muted-foreground text-sm mt-2">
+            Upload the candidate's resume to auto-fill details and configure initial letter constraints.
+          </p>
         </CardHeader>
-        <CardContent className="p-6">
-          <button 
-            onClick={handleSimulateUpload}
-            disabled={isUploading}
-            className="w-full flex flex-col items-center justify-center p-12 border-2 border-dashed border-primary/30 rounded-xl bg-accent/5 hover:bg-accent/10 transition-colors group disabled:opacity-70 disabled:cursor-not-allowed"
+        <CardContent className="p-6 space-y-4">
+          {/* Label wraps the real input — most reliable approach across browsers & iframes */}
+          <label
+            htmlFor="resume-upload-input"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={[
+              'w-full flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl transition-all duration-200 select-none',
+              isProcessing
+                ? 'border-primary/30 bg-accent/5 cursor-default pointer-events-none'
+                : isDragging
+                ? 'border-primary bg-primary/10 scale-[1.01] cursor-copy'
+                : 'border-primary/30 bg-accent/5 hover:bg-accent/10 hover:border-primary/60 cursor-pointer',
+            ].join(' ')}
           >
-            {isUploading ? (
+            <input
+              id="resume-upload-input"
+              type="file"
+              accept=".pdf,.docx,.doc,.txt"
+              className="sr-only"
+              onChange={handleFileChange}
+              disabled={isProcessing}
+            />
+
+            {isProcessing ? (
               <div className="flex flex-col items-center text-primary space-y-4">
                 <Loader2 className="w-12 h-12 animate-spin" />
-                <div className="text-sm font-medium">
-                  {parseStep === 0 && "Uploading document..."}
-                  {parseStep === 1 && "Extracting candidate details..."}
-                  {parseStep === 2 && "Analyzing location constraints..."}
+                <div className="text-sm font-medium text-center">
+                  {PARSE_STEPS[parseStepIdx]}
                 </div>
+              </div>
+            ) : isDragging ? (
+              <div className="flex flex-col items-center text-primary space-y-3">
+                <UploadCloud className="w-12 h-12" />
+                <p className="font-medium">Drop to upload</p>
               </div>
             ) : (
               <>
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                   <UploadCloud className="w-8 h-8 text-primary" />
                 </div>
-                <p className="font-medium text-foreground mb-1">Click to browse or drag & drop</p>
-                <p className="text-xs text-muted-foreground">PDF or DOCX up to 10MB</p>
+                <p className="font-medium text-foreground mb-1">Click to browse or drag &amp; drop</p>
+                <p className="text-xs text-muted-foreground">PDF or DOCX up to 10 MB</p>
               </>
             )}
-          </button>
+          </label>
+
+          {error && (
+            <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
