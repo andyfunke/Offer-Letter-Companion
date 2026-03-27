@@ -19,12 +19,12 @@ import {
 } from 'lucide-react';
 import { SCENARIO_LABELS, ScenarioId, getClausesForScenario, ClauseRecord } from '@/data/clause-library';
 import { buildTokenMap, renderToString, renderSegments } from '@/lib/render-clause';
-import { KINROSS_SITES, US_STATES, CA_PROVINCES } from '@/data/kinross-sites';
+import { KINROSS_SITES, US_STATES, CA_PROVINCES, siteLabel } from '@/data/kinross-sites';
 import * as Accordion from '@radix-ui/react-accordion';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, apiBase } from '@/hooks/use-auth';
 
-interface HrContact { id: number; username: string; email: string | null; }
+interface HrContact { id: number; username: string; email: string | null; site: string | null; }
 
 interface PtoOption { id: number; value: number; }
 
@@ -54,7 +54,7 @@ function OfferEditor() {
       .catch(() => {});
   }, []);
 
-  // Auto-populate site fields from user's assigned site
+  // Auto-populate site fields + HR contact from user's assigned site
   useEffect(() => {
     if (!user?.site) return;
     const site = KINROSS_SITES.find(s => s.id === user.site);
@@ -64,6 +64,13 @@ function OfferEditor() {
     dispatch({ type: 'SET_FIELD_VALUE', field: 'site_location', value: site.location });
     if (site.governingState) {
       dispatch({ type: 'SET_FIELD_VALUE', field: 'governing_state', value: site.governingState });
+    }
+    // Auto-fill the logged-in user as the HR contact for their site
+    if (user.username) {
+      dispatch({ type: 'SET_FIELD_VALUE', field: 'hr_contact_name', value: user.username });
+    }
+    if (user.email) {
+      dispatch({ type: 'SET_FIELD_VALUE', field: 'hr_contact_email', value: user.email });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -95,11 +102,15 @@ function OfferEditor() {
     }
   }
 
-  // Handle HR contact selection — auto-fills email
+  // Handle HR contact selection — auto-fills email + governing state from contact's site
   function handleHrContactChange(username: string) {
     setField('hr_contact_name', username);
     const contact = hrContacts.find(c => c.username === username);
     if (contact?.email) setField('hr_contact_email', contact.email);
+    if (contact?.site) {
+      const site = KINROSS_SITES.find(s => s.id === contact.site);
+      if (site?.governingState) handleGoverningStateChange(site.governingState);
+    }
   }
 
   // Handle site selection — auto-fills subsidiary name, location, governing state
@@ -548,7 +559,7 @@ function OfferEditor() {
                         onChange={e => handleSiteChange(e.target.value)}
                       >
                         <option value="">— Select site —</option>
-                        {KINROSS_SITES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                        {KINROSS_SITES.map(s => <option key={s.id} value={s.id}>{siteLabel(s)}</option>)}
                       </select>
                     </FieldWrapper>
                     <FieldWrapper id="site_subsidiary_name" label="Site Subsidiary Name">

@@ -72,6 +72,11 @@ export const KINROSS_SITES: KinrossSite[] = [
   },
 ];
 
+/** Display label with location in parentheses, e.g. "Curlew Basin (Republic, WA)" */
+export function siteLabel(site: KinrossSite): string {
+  return site.location ? `${site.label} (${site.location})` : site.label;
+}
+
 export const US_STATES = [
   'AK', 'AL', 'AR', 'AZ', 'CA', 'CO', 'CT', 'DC', 'DE', 'FL',
   'GA', 'HI', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY', 'LA', 'MA',

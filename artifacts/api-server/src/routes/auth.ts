@@ -235,7 +235,7 @@ router.post("/setup", async (req, res) => {
 router.get("/hr-contacts", requireAuth, async (_req, res) => {
   try {
     const users = await db
-      .select({ id: usersTable.id, username: usersTable.username, email: usersTable.email })
+      .select({ id: usersTable.id, username: usersTable.username, email: usersTable.email, site: usersTable.site })
       .from(usersTable)
       .where(eq(usersTable.isActive, true))
       .orderBy(usersTable.username);
