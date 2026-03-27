@@ -29,5 +29,8 @@ timeoutMs = 20000
 
 [userenv.development]
 
+[userenv.shared]
+FIELD_ENCRYPTION_KEY = "6ae50df8db4147fdadd548c3a4bd6bcf692930ef919ba6745a2b9e8abc9d2814"
+
 [nix]
 channel = "stable-25_05"
