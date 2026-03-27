@@ -114,6 +114,20 @@ export const userEventsTable = pgTable("user_events", {
 
 export type UserEvent = typeof userEventsTable.$inferSelect;
 
+// ── HR Profiles (dedicated HR contacts separate from user accounts) ────────
+export const hrProfilesTable = pgTable("hr_profiles", {
+  id: serial("id").primaryKey(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email"),
+  site: text("site"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type HrProfile = typeof hrProfilesTable.$inferSelect;
+
 // ── App Settings (key/value store for letterhead template etc.) ────────────
 export const appSettingsTable = pgTable("app_settings", {
   key: text("key").primaryKey(),

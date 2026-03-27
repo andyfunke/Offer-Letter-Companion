@@ -1,8 +1,8 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
-import { db, usersTable } from "@workspace/db";
-import { eq, or, count, sql } from "drizzle-orm";
+import { db, usersTable, hrProfilesTable } from "@workspace/db";
+import { eq, or, count, sql, asc } from "drizzle-orm";
 import { verifyPassword, hashPassword } from "../lib/passwords";
 import { createSession, destroySession, COOKIE_NAME, SESSION_TTL_MS } from "../lib/session";
 import { auditEvent } from "../middleware/audit";
@@ -231,15 +231,21 @@ router.post("/setup", async (req, res) => {
   }
 });
 
-// GET /api/auth/hr-contacts — all active users (for HR Contact dropdown)
+// GET /api/auth/hr-contacts — active HR profiles (for HR Contact dropdown)
 router.get("/hr-contacts", requireAuth, async (_req, res) => {
   try {
-    const users = await db
-      .select({ id: usersTable.id, username: usersTable.username, email: usersTable.email, site: usersTable.site })
-      .from(usersTable)
-      .where(eq(usersTable.isActive, true))
-      .orderBy(usersTable.username);
-    res.json({ contacts: users });
+    const profiles = await db
+      .select({
+        id: hrProfilesTable.id,
+        firstName: hrProfilesTable.firstName,
+        lastName: hrProfilesTable.lastName,
+        email: hrProfilesTable.email,
+        site: hrProfilesTable.site,
+      })
+      .from(hrProfilesTable)
+      .where(eq(hrProfilesTable.isActive, true))
+      .orderBy(asc(hrProfilesTable.lastName), asc(hrProfilesTable.firstName));
+    res.json({ contacts: profiles });
   } catch {
     res.status(500).json({ error: "Failed to load HR contacts." });
   }

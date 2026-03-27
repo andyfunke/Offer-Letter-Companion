@@ -1,15 +1,30 @@
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
-import { Shield, Users, AlertCircle, LayoutDashboard, ChevronRight, LogOut, Calendar, FileText } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Shield, Users, AlertCircle, LayoutDashboard, ChevronRight, LogOut, Calendar, FileText, UserCheck } from 'lucide-react';
 
-const NAV = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, minRole: 'admin' as const },
-  { href: '/admin/users', label: 'Users', icon: Users, minRole: 'admin' as const },
-  { href: '/admin/issues', label: 'Issues', icon: AlertCircle, minRole: 'admin' as const },
-  { href: '/admin/pto', label: 'PTO Options', icon: Calendar, minRole: 'admin' as const },
-  { href: '/admin/letterhead', label: 'Letterhead', icon: FileText, minRole: 'admin' as const },
-  { href: '/admin/security-spec', label: 'Security Spec', icon: Shield, minRole: 'admin' as const },
+const NAV_GROUPS = [
+  {
+    label: 'General',
+    items: [
+      { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, minRole: 'admin' as const },
+      { href: '/admin/issues', label: 'Issues', icon: AlertCircle, minRole: 'admin' as const },
+    ],
+  },
+  {
+    label: 'Offer Config',
+    items: [
+      { href: '/admin/pto', label: 'PTO Options', icon: Calendar, minRole: 'admin' as const },
+      { href: '/admin/letterhead', label: 'Letterhead', icon: FileText, minRole: 'admin' as const },
+      { href: '/admin/hr-contacts', label: 'HR Contacts', icon: UserCheck, minRole: 'admin' as const },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { href: '/admin/users', label: 'User Accounts', icon: Users, minRole: 'admin' as const },
+      { href: '/admin/security-spec', label: 'Security Spec', icon: Shield, minRole: 'admin' as const },
+    ],
+  },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -28,21 +43,34 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <p className="text-xs text-muted-foreground mt-0.5">{user?.username} · {user?.role}</p>
         </div>
 
-        <nav className="flex-1 p-3 space-y-0.5">
-          {NAV.filter(n => hasRole(n.minRole)).map(({ href, label, icon: Icon }) => {
-            const active = location === href || (href !== '/admin' && location.startsWith(href));
+        <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
+          {NAV_GROUPS.map(group => {
+            const visibleItems = group.items.filter(n => hasRole(n.minRole));
+            if (visibleItems.length === 0) return null;
             return (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  active
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                }`}
-              >
-                <Icon className="w-4 h-4" /> {label}
-              </Link>
+              <div key={group.label}>
+                <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                  {group.label}
+                </p>
+                <div className="space-y-0.5">
+                  {visibleItems.map(({ href, label, icon: Icon }) => {
+                    const active = location === href || (href !== '/admin' && location.startsWith(href));
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+                          active
+                            ? 'bg-primary/10 text-primary font-medium'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" /> {label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </nav>
@@ -69,7 +97,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <>
               <ChevronRight className="w-3.5 h-3.5" />
               <span className="text-foreground capitalize">
-                {location.replace('/admin/', '').split('/')[0]}
+                {location.replace('/admin/', '').split('/')[0].replace(/-/g, ' ')}
               </span>
             </>
           )}

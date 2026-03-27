@@ -9,22 +9,19 @@ import { ReportIssuePanel } from '@/components/offer-letter/ReportIssuePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Card } from '@/components/ui/card';
 import { useListTemplates, useCreateOffer } from '@workspace/api-client-react';
-import { format } from 'date-fns';
 import {
-  Briefcase, Calendar, CheckCircle, ChevronRight, FileCheck, FileText,
+  Briefcase, Calendar, CheckCircle, FileCheck, FileText,
   MapPin, User, Wallet, Save, Download, FileJson, AlertCircle, Shield, LogOut,
-  AlertTriangle, LayoutDashboard, ClipboardList, Trash2
+  AlertTriangle, LayoutDashboard, ClipboardList, Trash2, BookmarkPlus
 } from 'lucide-react';
 import { SCENARIO_LABELS, ScenarioId, getClausesForScenario, ClauseRecord } from '@/data/clause-library';
 import { buildTokenMap, renderToString, renderSegments } from '@/lib/render-clause';
-import { KINROSS_SITES, US_STATES, CA_PROVINCES, siteLabel } from '@/data/kinross-sites';
-import * as Accordion from '@radix-ui/react-accordion';
+import { KINROSS_SITES, US_STATES, CA_PROVINCES } from '@/data/kinross-sites';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, apiBase } from '@/hooks/use-auth';
 
-interface HrContact { id: number; username: string; email: string | null; site: string | null; }
+interface HrContact { id: number; firstName: string; lastName: string; email: string | null; site: string | null; }
 
 interface PtoOption { id: number; value: number; label: string | null; }
 
@@ -37,6 +34,9 @@ function OfferEditor() {
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
   const [hrContacts, setHrContacts] = useState<HrContact[]>([]);
   const [ptoOptions, setPtoOptions] = useState<PtoOption[]>([]);
+  const [saveProfileOpen, setSaveProfileOpen] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Load HR contacts list for dropdown
   useEffect(() => {
@@ -64,13 +64,6 @@ function OfferEditor() {
     dispatch({ type: 'SET_FIELD_VALUE', field: 'site_location', value: site.location });
     if (site.governingState) {
       dispatch({ type: 'SET_FIELD_VALUE', field: 'governing_state', value: site.governingState });
-    }
-    // Auto-fill the logged-in user as the HR contact for their site
-    if (user.username) {
-      dispatch({ type: 'SET_FIELD_VALUE', field: 'hr_contact_name', value: user.username });
-    }
-    if (user.email) {
-      dispatch({ type: 'SET_FIELD_VALUE', field: 'hr_contact_email', value: user.email });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -103,13 +96,18 @@ function OfferEditor() {
   }
 
   // Handle HR contact selection — auto-fills email + governing state from contact's site
-  function handleHrContactChange(username: string) {
-    setField('hr_contact_name', username);
-    const contact = hrContacts.find(c => c.username === username);
-    if (contact?.email) setField('hr_contact_email', contact.email);
-    if (contact?.site) {
-      const site = KINROSS_SITES.find(s => s.id === contact.site);
-      if (site?.governingState) handleGoverningStateChange(site.governingState);
+  function handleHrContactChange(contactId: string) {
+    const contact = hrContacts.find(c => String(c.id) === contactId);
+    if (contact) {
+      setField('hr_contact_name', `${contact.firstName} ${contact.lastName}`);
+      if (contact.email) setField('hr_contact_email', contact.email);
+      if (contact.site) {
+        const site = KINROSS_SITES.find(s => s.id === contact.site);
+        if (site?.governingState) handleGoverningStateChange(site.governingState);
+      }
+    } else {
+      setField('hr_contact_name', '');
+      setField('hr_contact_email', '');
     }
   }
 
@@ -121,6 +119,41 @@ function OfferEditor() {
     setField('site_subsidiary_name', site.subsidiaryName);
     setField('site_location', site.location);
     if (site.governingState) handleGoverningStateChange(site.governingState);
+  }
+
+  // Save current state as a named profile template
+  async function handleSaveProfile() {
+    if (!profileName.trim()) return;
+    setSavingProfile(true);
+    try {
+      const scenario = (state.formData.scenario_type as ScenarioId) || 'new_hire_salaried';
+      const activeFields = Object.entries(state.fieldStates).filter(([, v]) => v === 'active').map(([k]) => k);
+      const removedFields = Object.entries(state.fieldStates).filter(([, v]) => v === 'removed').map(([k]) => k);
+      const r = await fetch(`${apiBase()}/templates`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profileName: profileName.trim(),
+          baseScenario: scenario,
+          site: state.formData.selected_site_id || undefined,
+          activeFields, removedFields,
+          clauseVariantIds: {}, outputOrder: [], defaultSigners: {},
+          defaultHrContact: state.formData.hr_contact_name
+            ? { name: state.formData.hr_contact_name, email: state.formData.hr_contact_email || '' }
+            : {},
+        }),
+      });
+      if (r.ok) {
+        toast({ title: 'Profile Saved', description: `"${profileName.trim()}" saved as a template.` });
+        setProfileName('');
+        setSaveProfileOpen(false);
+      } else {
+        const err = await r.json().catch(() => ({}));
+        toast({ title: 'Save Failed', description: err.error ?? 'Could not save profile.', variant: 'destructive' });
+      }
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   const handleCopyPayload = () => {
@@ -319,7 +352,37 @@ function OfferEditor() {
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           <div>
-            <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-wider mb-3">Saved Profiles</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Saved Profiles</h3>
+              <button
+                className="flex items-center gap-1 text-xs text-primary hover:underline"
+                onClick={() => setSaveProfileOpen(p => !p)}
+                title="Save current form state as a named profile"
+              >
+                <BookmarkPlus className="w-3.5 h-3.5" />
+                {saveProfileOpen ? 'Cancel' : 'Save'}
+              </button>
+            </div>
+            {saveProfileOpen && (
+              <div className="mb-3 p-2.5 border rounded-lg bg-background space-y-2">
+                <Input
+                  placeholder="Profile name…"
+                  value={profileName}
+                  onChange={e => setProfileName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSaveProfile(); if (e.key === 'Escape') setSaveProfileOpen(false); }}
+                  className="h-7 text-xs"
+                  autoFocus
+                />
+                <Button
+                  size="sm"
+                  className="w-full h-7 text-xs"
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile || !profileName.trim()}
+                >
+                  {savingProfile ? 'Saving…' : 'Save Profile'}
+                </Button>
+              </div>
+            )}
             <div className="space-y-1">
               {templatesData?.templates?.map(tpl => (
                 <button 
@@ -441,19 +504,14 @@ function OfferEditor() {
               </span>
             </div>
 
-            <Accordion.Root type="multiple" defaultValue={["setup", "candidate", "employment", "comp"]} className="space-y-4">
+            <div className="space-y-4">
               
               {/* SECTION: LETTER SETUP */}
-              <Accordion.Item value="setup" className="border rounded-xl bg-card overflow-hidden shadow-sm">
-                <Accordion.Header>
-                  <Accordion.Trigger className="w-full flex items-center justify-between p-4 hover:bg-accent/5 transition-colors group">
-                    <div className="flex items-center gap-3 font-serif font-semibold text-lg">
-                      <ClipboardList className="w-5 h-5 text-primary" /> Letter Setup
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-data-[state=open]:rotate-90 transition-transform" />
-                  </Accordion.Trigger>
-                </Accordion.Header>
-                <Accordion.Content className="p-4 pt-0 border-t bg-slate-50/50 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+              <div className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                <div className="flex items-center gap-3 font-serif font-semibold text-lg p-4 border-b">
+                  <ClipboardList className="w-5 h-5 text-primary" /> Letter Setup
+                </div>
+                <div className="p-4 bg-slate-50/50">
                   <div className="grid grid-cols-1 gap-4 mt-4">
                     <FieldWrapper id="scenario_type" label="Scenario / Template">
                       <select
@@ -470,12 +528,16 @@ function OfferEditor() {
                       <FieldWrapper id="hr_contact_name" label="HR Contact">
                         <select
                           className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                          value={state.formData.hr_contact_name || ''}
+                          value={(() => {
+                            const name = state.formData.hr_contact_name || '';
+                            const match = hrContacts.find(c => `${c.firstName} ${c.lastName}` === name);
+                            return match ? String(match.id) : '';
+                          })()}
                           onChange={e => handleHrContactChange(e.target.value)}
                         >
                           <option value="">— Select HR contact —</option>
                           {hrContacts.map(c => (
-                            <option key={c.id} value={c.username}>{c.username}{c.email ? ` (${c.email})` : ''}</option>
+                            <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
                           ))}
                         </select>
                       </FieldWrapper>
@@ -506,20 +568,15 @@ function OfferEditor() {
                       </FieldWrapper>
                     </div>
                   </div>
-                </Accordion.Content>
-              </Accordion.Item>
+                </div>
+              </div>
 
               {/* SECTION: CANDIDATE */}
-              <Accordion.Item value="candidate" className="border rounded-xl bg-card overflow-hidden shadow-sm">
-                <Accordion.Header>
-                  <Accordion.Trigger className="w-full flex items-center justify-between p-4 hover:bg-accent/5 transition-colors group">
-                    <div className="flex items-center gap-3 font-serif font-semibold text-lg">
-                      <User className="w-5 h-5 text-primary" /> Candidate Details
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-data-[state=open]:rotate-90 transition-transform" />
-                  </Accordion.Trigger>
-                </Accordion.Header>
-                <Accordion.Content className="p-4 pt-0 border-t bg-slate-50/50 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+              <div className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                <div className="flex items-center gap-3 font-serif font-semibold text-lg p-4 border-b">
+                  <User className="w-5 h-5 text-primary" /> Candidate Details
+                </div>
+                <div className="p-4 bg-slate-50/50">
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <FieldWrapper id="candidate_full_name" label="Full Name">
                       <Input value={state.formData.candidate_full_name || ''} onChange={e => setField('candidate_full_name', e.target.value)} />
@@ -534,20 +591,15 @@ function OfferEditor() {
                       <Input type="date" value={state.formData.acceptance_deadline || ''} onChange={e => setField('acceptance_deadline', e.target.value)} />
                     </FieldWrapper>
                   </div>
-                </Accordion.Content>
-              </Accordion.Item>
+                </div>
+              </div>
 
               {/* SECTION: EMPLOYMENT */}
-              <Accordion.Item value="employment" className="border rounded-xl bg-card overflow-hidden shadow-sm">
-                <Accordion.Header>
-                  <Accordion.Trigger className="w-full flex items-center justify-between p-4 hover:bg-accent/5 transition-colors group">
-                    <div className="flex items-center gap-3 font-serif font-semibold text-lg">
-                      <Briefcase className="w-5 h-5 text-primary" /> Employment Details
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-data-[state=open]:rotate-90 transition-transform" />
-                  </Accordion.Trigger>
-                </Accordion.Header>
-                <Accordion.Content className="p-4 pt-0 border-t bg-slate-50/50">
+              <div className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                <div className="flex items-center gap-3 font-serif font-semibold text-lg p-4 border-b">
+                  <Briefcase className="w-5 h-5 text-primary" /> Employment Details
+                </div>
+                <div className="p-4 bg-slate-50/50">
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <FieldWrapper id="job_title" label="Job Title">
                       <Input value={state.formData.job_title || ''} onChange={e => setField('job_title', e.target.value)} />
@@ -559,7 +611,7 @@ function OfferEditor() {
                         onChange={e => handleSiteChange(e.target.value)}
                       >
                         <option value="">— Select site —</option>
-                        {KINROSS_SITES.map(s => <option key={s.id} value={s.id}>{siteLabel(s)}</option>)}
+                        {KINROSS_SITES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                       </select>
                     </FieldWrapper>
                     <FieldWrapper id="site_subsidiary_name" label="Site Subsidiary Name">
@@ -596,20 +648,15 @@ function OfferEditor() {
                       </FieldWrapper>
                     )}
                   </div>
-                </Accordion.Content>
-              </Accordion.Item>
+                </div>
+              </div>
 
               {/* SECTION: COMPENSATION */}
-              <Accordion.Item value="comp" className="border rounded-xl bg-card overflow-hidden shadow-sm">
-                <Accordion.Header>
-                  <Accordion.Trigger className="w-full flex items-center justify-between p-4 hover:bg-accent/5 transition-colors group">
-                    <div className="flex items-center gap-3 font-serif font-semibold text-lg">
-                      <Wallet className="w-5 h-5 text-primary" /> Compensation
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-data-[state=open]:rotate-90 transition-transform" />
-                  </Accordion.Trigger>
-                </Accordion.Header>
-                <Accordion.Content className="p-4 pt-0 border-t bg-slate-50/50">
+              <div className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                <div className="flex items-center gap-3 font-serif font-semibold text-lg p-4 border-b">
+                  <Wallet className="w-5 h-5 text-primary" /> Compensation
+                </div>
+                <div className="p-4 bg-slate-50/50">
                   <div className="grid grid-cols-1 gap-4 mt-4">
                     <FieldWrapper id="pay_basis" label="Pay Basis">
                       <div className="flex gap-4">
@@ -667,20 +714,15 @@ function OfferEditor() {
                       </div>
                     )}
                   </div>
-                </Accordion.Content>
-              </Accordion.Item>
+                </div>
+              </div>
 
               {/* SECTION: PTO */}
-              <Accordion.Item value="pto" className="border rounded-xl bg-card overflow-hidden shadow-sm">
-                <Accordion.Header>
-                  <Accordion.Trigger className="w-full flex items-center justify-between p-4 hover:bg-accent/5 transition-colors group">
-                    <div className="flex items-center gap-3 font-serif font-semibold text-lg">
-                      <Calendar className="w-5 h-5 text-primary" /> Paid Time Off
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-data-[state=open]:rotate-90 transition-transform" />
-                  </Accordion.Trigger>
-                </Accordion.Header>
-                <Accordion.Content className="p-4 pt-0 border-t bg-slate-50/50">
+              <div className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                <div className="flex items-center gap-3 font-serif font-semibold text-lg p-4 border-b">
+                  <Calendar className="w-5 h-5 text-primary" /> Paid Time Off
+                </div>
+                <div className="p-4 bg-slate-50/50">
                   <div className="grid grid-cols-1 gap-4 mt-4">
                     <FieldWrapper id="pto_confirmed_value" label="Annual PTO (Hours)">
                       <div className="flex gap-4 items-center">
@@ -717,20 +759,15 @@ function OfferEditor() {
                       </div>
                     </FieldWrapper>
                   </div>
-                </Accordion.Content>
-              </Accordion.Item>
+                </div>
+              </div>
               
               {/* SECTION: RELOCATION */}
-              <Accordion.Item value="relocation" className="border rounded-xl bg-card overflow-hidden shadow-sm">
-                <Accordion.Header>
-                  <Accordion.Trigger className="w-full flex items-center justify-between p-4 hover:bg-accent/5 transition-colors group">
-                    <div className="flex items-center gap-3 font-serif font-semibold text-lg">
-                      <MapPin className="w-5 h-5 text-primary" /> Relocation & Immigration
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-data-[state=open]:rotate-90 transition-transform" />
-                  </Accordion.Trigger>
-                </Accordion.Header>
-                <Accordion.Content className="p-4 pt-0 border-t bg-slate-50/50">
+              <div className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                <div className="flex items-center gap-3 font-serif font-semibold text-lg p-4 border-b">
+                  <MapPin className="w-5 h-5 text-primary" /> Relocation & Immigration
+                </div>
+                <div className="p-4 bg-slate-50/50">
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <FieldWrapper id="relocation_applicable" label="Relocation Required?" optional>
                       <div className="space-y-4 pt-2">
@@ -754,20 +791,15 @@ function OfferEditor() {
                       </FieldWrapper>
                     </div>
                   </div>
-                </Accordion.Content>
-              </Accordion.Item>
+                </div>
+              </div>
 
               {/* SECTION: CONTINGENCIES */}
-              <Accordion.Item value="contingencies" className="border rounded-xl bg-card overflow-hidden shadow-sm">
-                <Accordion.Header>
-                  <Accordion.Trigger className="w-full flex items-center justify-between p-4 hover:bg-accent/5 transition-colors group">
-                    <div className="flex items-center gap-3 font-serif font-semibold text-lg">
-                      <FileCheck className="w-5 h-5 text-primary" /> Contingencies
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-data-[state=open]:rotate-90 transition-transform" />
-                  </Accordion.Trigger>
-                </Accordion.Header>
-                <Accordion.Content className="p-4 pt-0 border-t bg-slate-50/50">
+              <div className="border rounded-xl bg-card overflow-hidden shadow-sm">
+                <div className="flex items-center gap-3 font-serif font-semibold text-lg p-4 border-b">
+                  <FileCheck className="w-5 h-5 text-primary" /> Contingencies
+                </div>
+                <div className="p-4 bg-slate-50/50">
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <FieldWrapper id="background_check_required" label="Background Check">
                       <Switch checked={state.formData.background_check_required} onCheckedChange={c => setField('background_check_required', c)} />
@@ -782,10 +814,10 @@ function OfferEditor() {
                       <Switch checked={state.formData.work_authorization_clause_required} onCheckedChange={c => setField('work_authorization_clause_required', c)} />
                     </FieldWrapper>
                   </div>
-                </Accordion.Content>
-              </Accordion.Item>
+                </div>
+              </div>
 
-            </Accordion.Root>
+            </div>
           </div>
         </div>
       </div>
