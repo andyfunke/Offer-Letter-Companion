@@ -22,9 +22,12 @@ router.get("/pto-options", requireAuth, async (_req, res) => {
 // POST /api/admin/pto-options  (system_admin only)
 router.post("/pto-options", requireAuth, requireRole("admin"), async (req, res) => {
   try {
-    const { value } = z.object({ value: z.number().int().positive() }).parse(req.body);
-    const [created] = await db.insert(ptoOptionsTable).values({ value }).returning();
-    auditEvent("PTO_OPTION_ADDED", { value, userId: req.user!.id });
+    const { value, label } = z.object({
+      value: z.number().int().positive(),
+      label: z.string().trim().optional(),
+    }).parse(req.body);
+    const [created] = await db.insert(ptoOptionsTable).values({ value, label: label ?? null }).returning();
+    auditEvent("PTO_OPTION_ADDED", { value, label, userId: req.user!.id });
     res.status(201).json(created);
   } catch (err) {
     if (err instanceof z.ZodError) { res.status(400).json({ error: err.issues[0]?.message }); return; }

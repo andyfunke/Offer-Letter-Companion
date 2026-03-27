@@ -94,7 +94,8 @@ export type AdminNote = typeof adminNotesTable.$inferSelect;
 // ── PTO Options (admin-managed list of valid PTO hours values) ─────────────
 export const ptoOptionsTable = pgTable("pto_options", {
   id: serial("id").primaryKey(),
-  value: integer("value").notNull().unique(),
+  value: integer("value").notNull(),
+  label: text("label"),           // e.g. "Group 4 (Hourly), <5 yrs"
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -26,7 +26,7 @@ import { useAuth, apiBase } from '@/hooks/use-auth';
 
 interface HrContact { id: number; username: string; email: string | null; site: string | null; }
 
-interface PtoOption { id: number; value: number; }
+interface PtoOption { id: number; value: number; label: string | null; }
 
 function OfferEditor() {
   const { state, dispatch } = useOfferStore();
@@ -685,13 +685,30 @@ function OfferEditor() {
                     <FieldWrapper id="pto_confirmed_value" label="Annual PTO (Hours)">
                       <div className="flex gap-4 items-center">
                         <select
-                          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary w-40"
-                          value={state.formData.pto_confirmed_value ?? ''}
-                          onChange={e => setField('pto_confirmed_value', e.target.value ? parseInt(e.target.value) : undefined)}
+                          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary flex-1 min-w-0"
+                          value={(() => {
+                            const v = state.formData.pto_confirmed_value;
+                            const l = state.formData.pto_confirmed_label as string | undefined;
+                            if (v == null) return '';
+                            const match = ptoOptions.find(o => o.value === Number(v) && (l ? o.label === l : true));
+                            return match ? String(match.id) : '';
+                          })()}
+                          onChange={e => {
+                            const opt = ptoOptions.find(o => String(o.id) === e.target.value);
+                            if (opt) {
+                              setField('pto_confirmed_value', opt.value);
+                              setField('pto_confirmed_label', opt.label ?? '');
+                            } else {
+                              setField('pto_confirmed_value', undefined);
+                              setField('pto_confirmed_label', '');
+                            }
+                          }}
                         >
                           <option value="">— Select —</option>
                           {ptoOptions.map(o => (
-                            <option key={o.id} value={o.value}>{o.value} hrs</option>
+                            <option key={o.id} value={String(o.id)}>
+                              {o.value} hrs{o.label ? ` – ${o.label}` : ''}
+                            </option>
                           ))}
                         </select>
                         <Button variant={state.ptoConfirmed ? "secondary" : "default"} onClick={() => dispatch({ type: 'CONFIRM_PTO' })}>
