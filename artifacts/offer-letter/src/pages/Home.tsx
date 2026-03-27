@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 import {
   Briefcase, Calendar, CheckCircle, ChevronRight, FileCheck, FileText,
   MapPin, User, Wallet, Save, Download, FileJson, AlertCircle, Shield, LogOut,
-  AlertTriangle, LayoutDashboard, ClipboardList
+  AlertTriangle, LayoutDashboard, ClipboardList, Trash2
 } from 'lucide-react';
 import { SCENARIO_LABELS, ScenarioId, getClausesForScenario, ClauseRecord } from '@/data/clause-library';
 import { buildTokenMap, renderToString, renderSegments } from '@/lib/render-clause';
@@ -376,16 +376,27 @@ function OfferEditor() {
             <Button
               variant="ghost"
               size="sm"
-              title="Clear all session data"
+              title="Clear all form data"
               onClick={() => {
-                if (confirm('Clear all session data? This cannot be undone.')) {
+                if (confirm('Clear all form data? This cannot be undone.')) {
                   dispatch({ type: 'RESET' });
-                  toast({ title: 'Session Cleared', description: 'All candidate and offer data has been removed from this session.' });
+                  toast({ title: 'Form Cleared', description: 'All candidate and offer data has been removed.' });
                 }
               }}
             >
-              <LogOut className="w-4 h-4 mr-2" /> Clear Session
+              <Trash2 className="w-4 h-4 mr-2" /> Clear Form
             </Button>
+            {user && (
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Sign out of this account"
+                onClick={() => logout()}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <LogOut className="w-4 h-4 mr-2" /> Sign Out
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={handleCopyPayload} title="Copy Claude Payload">
               <FileJson className="w-4 h-4 mr-2" /> Payload
             </Button>

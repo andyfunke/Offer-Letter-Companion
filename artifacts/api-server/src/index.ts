@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { bootstrapAdmin } from "./lib/bootstrap";
+import { bootstrapAdmin, ensureSeededUsers } from "./lib/bootstrap";
 import { purgeExpiredSessions } from "./lib/session";
 import { db, offerDraftsTable } from "@workspace/db";
 import { lt } from "drizzle-orm";
@@ -22,6 +22,13 @@ try {
 } catch (err) {
   logger.error({ err }, "Bootstrap admin failed — server will not start.");
   process.exit(1);
+}
+
+// ── Ensure required seeded accounts exist ─────────────────────────────────
+try {
+  await ensureSeededUsers();
+} catch (err) {
+  logger.warn({ err }, "ensureSeededUsers failed — continuing anyway.");
 }
 
 // ── Purge expired sessions once on startup, then every hour ───────────────
