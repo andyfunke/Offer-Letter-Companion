@@ -11,14 +11,14 @@ const router = Router();
 router.use(requireAuth, requireRole("system_admin"));
 
 const createUserSchema = z.object({
-  username: z.string().min(2).max(60),
-  email: z.string().email().optional(),
-  password: z.string().min(12).max(256),
+  username: z.string().min(2).max(60).regex(/^[a-zA-Z0-9_.-]+$/),
+  email: z.string().email().optional().or(z.literal('')),
+  password: z.string().max(256).optional(), // blank = must reset on first login
   role: z.enum(["recruiter", "hr_admin", "system_admin"]),
 });
 
 const updateUserSchema = z.object({
-  email: z.string().email().optional().nullable(),
+  email: z.string().email().optional().nullable().or(z.literal('')),
   role: z.enum(["recruiter", "hr_admin", "system_admin"]).optional(),
   isActive: z.boolean().optional(),
 });
@@ -27,7 +27,6 @@ const resetPasswordSchema = z.object({
   newPassword: z.string().min(12).max(256),
 });
 
-// ── Safe user projection (no password hash) ───────────────────────────────
 function safeUser(u: typeof usersTable.$inferSelect) {
   return {
     id: u.id,
@@ -36,6 +35,7 @@ function safeUser(u: typeof usersTable.$inferSelect) {
     role: u.role,
     isActive: u.isActive,
     isBootstrapAdmin: u.isBootstrapAdmin,
+    mustResetPassword: u.mustResetPassword,
     lastLoginAt: u.lastLoginAt,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
@@ -52,32 +52,33 @@ router.get("/", async (_req, res) => {
 router.post("/", async (req, res) => {
   try {
     const body = createUserSchema.parse(req.body);
-    // Check username uniqueness
     const [exists] = await db
       .select({ id: usersTable.id })
       .from(usersTable)
       .where(eq(usersTable.username, body.username))
       .limit(1);
-    if (exists) {
-      res.status(409).json({ error: "Username already exists." });
-      return;
-    }
-    const passwordHash = await hashPassword(body.password);
-    const [user] = await db
-      .insert(usersTable)
-      .values({ ...body, passwordHash, email: body.email ?? null })
-      .returning();
-    auditEvent("USER_CREATED", {
-      createdBy: req.user!.username,
-      newUsername: body.username,
+    if (exists) { res.status(409).json({ error: "Username already exists." }); return; }
+
+    // Blank or missing password → must reset on first login
+    const hasPassword = body.password && body.password.length >= 12;
+    const passwordHash = hasPassword ? await hashPassword(body.password!) : '';
+    const mustResetPassword = !hasPassword;
+
+    const emailVal = body.email && body.email.trim() ? body.email.trim() : null;
+
+    const [user] = await db.insert(usersTable).values({
+      username: body.username,
+      email: emailVal,
+      passwordHash,
       role: body.role,
-    });
+      isActive: true,
+      mustResetPassword,
+    }).returning();
+
+    auditEvent("USER_CREATED", { createdBy: req.user!.username, newUsername: body.username, role: body.role, mustResetPassword });
     res.status(201).json(safeUser(user!));
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.message });
-      return;
-    }
+    if (err instanceof z.ZodError) { res.status(400).json({ error: err.issues[0]?.message ?? "Invalid input" }); return; }
     req.log.error({ err }, "Create user failed");
     res.status(500).json({ error: "Failed to create user." });
   }
@@ -96,22 +97,17 @@ router.put("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const body = updateUserSchema.parse(req.body);
+    const emailVal = body.email === '' ? null : body.email;
     const [user] = await db
       .update(usersTable)
-      .set({ ...body, updatedAt: new Date() })
+      .set({ ...body, email: emailVal, updatedAt: new Date() })
       .where(eq(usersTable.id, id))
       .returning();
     if (!user) { res.status(404).json({ error: "User not found." }); return; }
-    auditEvent("USER_UPDATED", {
-      updatedBy: req.user!.username,
-      targetUserId: id,
-      changes: { role: body.role, isActive: body.isActive },
-    });
+    auditEvent("USER_UPDATED", { updatedBy: req.user!.username, targetUserId: id, changes: { role: body.role, isActive: body.isActive } });
     res.json(safeUser(user));
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.message }); return;
-    }
+    if (err instanceof z.ZodError) { res.status(400).json({ error: err.issues[0]?.message }); return; }
     res.status(500).json({ error: "Failed to update user." });
   }
 });
@@ -124,40 +120,29 @@ router.post("/:id/reset-password", async (req, res) => {
     const passwordHash = await hashPassword(newPassword);
     const [user] = await db
       .update(usersTable)
-      .set({ passwordHash, updatedAt: new Date() })
+      .set({ passwordHash, mustResetPassword: false, updatedAt: new Date() })
       .where(eq(usersTable.id, id))
       .returning();
     if (!user) { res.status(404).json({ error: "User not found." }); return; }
-    auditEvent("PASSWORD_RESET", {
-      resetBy: req.user!.username,
-      targetUserId: id,
-    });
+    auditEvent("PASSWORD_RESET", { resetBy: req.user!.username, targetUserId: id });
     res.json({ ok: true });
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.message }); return;
-    }
+    if (err instanceof z.ZodError) { res.status(400).json({ error: err.issues[0]?.message }); return; }
     res.status(500).json({ error: "Failed to reset password." });
   }
 });
 
-// DELETE /api/admin/users/:id — deactivate only, never hard delete
+// DELETE /api/admin/users/:id — soft deactivate
 router.delete("/:id", async (req, res) => {
   const id = parseInt(req.params.id);
-  if (id === req.user!.id) {
-    res.status(400).json({ error: "Cannot deactivate your own account." });
-    return;
-  }
+  if (id === req.user!.id) { res.status(400).json({ error: "Cannot deactivate your own account." }); return; }
   const [user] = await db
     .update(usersTable)
     .set({ isActive: false, updatedAt: new Date() })
     .where(eq(usersTable.id, id))
     .returning();
   if (!user) { res.status(404).json({ error: "User not found." }); return; }
-  auditEvent("USER_DEACTIVATED", {
-    deactivatedBy: req.user!.username,
-    targetUserId: id,
-  });
+  auditEvent("USER_DEACTIVATED", { deactivatedBy: req.user!.username, targetUserId: id });
   res.json({ ok: true });
 });
 

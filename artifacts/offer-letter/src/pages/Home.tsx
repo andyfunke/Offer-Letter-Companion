@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { useOfferStore, OfferProvider } from '@/hooks/use-offer-store';
 import { ResumeUpload } from '@/components/offer-letter/ResumeUpload';
@@ -13,15 +13,18 @@ import { Card } from '@/components/ui/card';
 import { useListTemplates, useCreateOffer } from '@workspace/api-client-react';
 import { format } from 'date-fns';
 import {
-  Briefcase, Building2, Calendar, CheckCircle, ChevronRight, FileCheck, FileText, 
-  MapPin, Settings2, User, Wallet, Save, Download, FileJson, AlertCircle, Shield, LogOut,
-  AlertTriangle, LayoutDashboard, ClipboardList, Phone
+  Briefcase, Calendar, CheckCircle, ChevronRight, FileCheck, FileText,
+  MapPin, User, Wallet, Save, Download, FileJson, AlertCircle, Shield, LogOut,
+  AlertTriangle, LayoutDashboard, ClipboardList
 } from 'lucide-react';
 import { SCENARIO_LABELS, ScenarioId, getClausesForScenario, ClauseRecord } from '@/data/clause-library';
 import { buildTokenMap, renderToString } from '@/lib/render-clause';
+import { KINROSS_SITES, US_STATES, CA_PROVINCES } from '@/data/kinross-sites';
 import * as Accordion from '@radix-ui/react-accordion';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth, apiBase } from '@/hooks/use-auth';
+
+interface HrContact { id: number; username: string; email: string | null; }
 
 function OfferEditor() {
   const { state, dispatch } = useOfferStore();
@@ -30,6 +33,59 @@ function OfferEditor() {
   const { data: templatesData } = useListTemplates();
   const createOfferMutation = useCreateOffer();
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
+  const [hrContacts, setHrContacts] = useState<HrContact[]>([]);
+
+  // Load HR contacts list for dropdown
+  useEffect(() => {
+    fetch(`${apiBase()}/auth/hr-contacts`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : { contacts: [] })
+      .then(data => setHrContacts(data.contacts ?? []))
+      .catch(() => {});
+  }, []);
+
+  // Load user's last governing state preference
+  useEffect(() => {
+    if (!user) return;
+    fetch(`${apiBase()}/auth/preferences`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : {})
+      .then(prefs => {
+        if (prefs.lastGoverningState && !state.formData.governing_state) {
+          dispatch({ type: 'SET_FIELD_VALUE', field: 'governing_state', value: prefs.lastGoverningState });
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Save governing state preference when it changes
+  function handleGoverningStateChange(val: string) {
+    setField('governing_state', val);
+    if (val && user) {
+      fetch(`${apiBase()}/auth/preferences`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lastGoverningState: val }),
+      }).catch(() => {});
+    }
+  }
+
+  // Handle HR contact selection — auto-fills email
+  function handleHrContactChange(username: string) {
+    setField('hr_contact_name', username);
+    const contact = hrContacts.find(c => c.username === username);
+    if (contact?.email) setField('hr_contact_email', contact.email);
+  }
+
+  // Handle site selection — auto-fills subsidiary name, location, governing state
+  function handleSiteChange(siteId: string) {
+    const site = KINROSS_SITES.find(s => s.id === siteId);
+    if (!site) return;
+    setField('selected_site_id', siteId);
+    setField('site_subsidiary_name', site.subsidiaryName);
+    setField('site_location', site.location);
+    if (site.governingState) handleGoverningStateChange(site.governingState);
+  }
 
   const handleCopyPayload = () => {
     const payload = JSON.stringify(state, null, 2);
@@ -301,16 +357,42 @@ function OfferEditor() {
                       </select>
                     </FieldWrapper>
                     <div className="grid grid-cols-2 gap-4">
-                      <FieldWrapper id="hr_contact_name" label="HR Contact Name">
-                        <Input value={state.formData.hr_contact_name || ''} onChange={e => setField('hr_contact_name', e.target.value)} placeholder="e.g. Renee Karikas" />
+                      <FieldWrapper id="hr_contact_name" label="HR Contact">
+                        <select
+                          className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                          value={state.formData.hr_contact_name || ''}
+                          onChange={e => handleHrContactChange(e.target.value)}
+                        >
+                          <option value="">— Select HR contact —</option>
+                          {hrContacts.map(c => (
+                            <option key={c.id} value={c.username}>{c.username}{c.email ? ` (${c.email})` : ''}</option>
+                          ))}
+                        </select>
                       </FieldWrapper>
                       <FieldWrapper id="hr_contact_email" label="HR Contact Email" optional>
-                        <Input type="email" value={state.formData.hr_contact_email || ''} onChange={e => setField('hr_contact_email', e.target.value)} placeholder="hr@kinross.com" />
+                        <Input
+                          type="email"
+                          value={state.formData.hr_contact_email || ''}
+                          onChange={e => setField('hr_contact_email', e.target.value)}
+                          placeholder="Auto-filled from contact selection"
+                        />
                       </FieldWrapper>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <FieldWrapper id="governing_state" label="Governing State">
-                        <Input value={state.formData.governing_state || ''} onChange={e => setField('governing_state', e.target.value)} placeholder="e.g. WA" />
+                        <select
+                          className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                          value={state.formData.governing_state || ''}
+                          onChange={e => handleGoverningStateChange(e.target.value)}
+                        >
+                          <option value="">— Select state/province —</option>
+                          <optgroup label="US States">
+                            {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                          </optgroup>
+                          <optgroup label="Canadian Provinces">
+                            {CA_PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
+                          </optgroup>
+                        </select>
                       </FieldWrapper>
                     </div>
                   </div>
@@ -360,14 +442,21 @@ function OfferEditor() {
                     <FieldWrapper id="job_title" label="Job Title">
                       <Input value={state.formData.job_title || ''} onChange={e => setField('job_title', e.target.value)} />
                     </FieldWrapper>
-                    <FieldWrapper id="site_subsidiary_name" label="Site Subsidiary Name">
-                      <Input value={state.formData.site_subsidiary_name || ''} onChange={e => setField('site_subsidiary_name', e.target.value)} placeholder="e.g. Echo Bay Minerals, Inc." />
+                    <FieldWrapper id="selected_site_id" label="Site">
+                      <select
+                        className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                        value={state.formData.selected_site_id || ''}
+                        onChange={e => handleSiteChange(e.target.value)}
+                      >
+                        <option value="">— Select site —</option>
+                        {KINROSS_SITES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                      </select>
                     </FieldWrapper>
-                    <FieldWrapper id="site_name" label="Site Name (short)">
-                      <Input value={state.formData.site_name || ''} onChange={e => setField('site_name', e.target.value)} placeholder="e.g. Echo Bay" />
+                    <FieldWrapper id="site_subsidiary_name" label="Site Subsidiary Name">
+                      <Input value={state.formData.site_subsidiary_name || ''} onChange={e => setField('site_subsidiary_name', e.target.value)} placeholder="Auto-filled from site selection" />
                     </FieldWrapper>
                     <FieldWrapper id="site_location" label="Site Location">
-                      <Input value={state.formData.site_location || ''} onChange={e => setField('site_location', e.target.value)} placeholder="e.g. Republic, WA" />
+                      <Input value={state.formData.site_location || ''} onChange={e => setField('site_location', e.target.value)} placeholder="Auto-filled from site selection" />
                     </FieldWrapper>
                     <FieldWrapper id="start_date" label="Expected Start Date">
                       <Input type="date" value={state.formData.start_date || ''} onChange={e => setField('start_date', e.target.value)} />

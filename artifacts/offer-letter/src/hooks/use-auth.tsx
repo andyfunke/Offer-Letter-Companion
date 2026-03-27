@@ -5,6 +5,7 @@ export interface AuthUser {
   username: string;
   role: 'recruiter' | 'hr_admin' | 'system_admin';
   email: string | null;
+  mustResetPassword: boolean;
 }
 
 interface AuthState {
@@ -14,9 +15,10 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string; mustResetPassword?: boolean }>;
   logout: () => Promise<void>;
   completeSetup: (user: AuthUser) => void;
+  passwordReset: () => void;
   hasRole: (minRole: 'recruiter' | 'hr_admin' | 'system_admin') => boolean;
   isAdmin: boolean;
 }
@@ -34,16 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ user: null, loading: true, needsSetup: false });
 
   useEffect(() => {
-    // Check both setup status and current session in parallel
     Promise.all([
       fetch(`${apiBase()}/auth/setup-status`).then(r => r.ok ? r.json() : { needsSetup: false }),
       fetch(`${apiBase()}/auth/me`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([setup, me]) => {
-      setState({
-        user: me ?? null,
-        loading: false,
-        needsSetup: setup.needsSetup ?? false,
-      });
+      setState({ user: me ?? null, loading: false, needsSetup: setup.needsSetup ?? false });
     }).catch(() => {
       setState({ user: null, loading: false, needsSetup: false });
     });
@@ -60,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (r.ok) {
         const user = await r.json();
         setState(s => ({ ...s, user, loading: false, needsSetup: false }));
-        return { ok: true };
+        return { ok: true, mustResetPassword: user.mustResetPassword ?? false };
       }
       const err = await r.json().catch(() => ({ error: 'Login failed.' }));
       return { ok: false, error: err.error ?? 'Login failed.' };
@@ -74,9 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, user: null, loading: false }));
   }, []);
 
-  // Called from the setup page after the API creates the first admin and auto-logs them in
   const completeSetup = useCallback((user: AuthUser) => {
     setState({ user, loading: false, needsSetup: false });
+  }, []);
+
+  // Called after a successful password reset to clear the mustResetPassword flag
+  const passwordReset = useCallback(() => {
+    setState(s => s.user ? { ...s, user: { ...s.user, mustResetPassword: false } } : s);
   }, []);
 
   const hasRole = useCallback((minRole: 'recruiter' | 'hr_admin' | 'system_admin') => {
@@ -90,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       completeSetup,
+      passwordReset,
       hasRole,
       isAdmin: state.user ? ROLE_RANK[state.user.role] >= ROLE_RANK.hr_admin : false,
     }}>

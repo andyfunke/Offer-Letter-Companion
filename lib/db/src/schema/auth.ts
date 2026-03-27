@@ -7,10 +7,12 @@ export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   email: text("email"),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash").notNull().default(''),
   role: text("role").notNull().default("recruiter"), // recruiter | hr_admin | system_admin
   isActive: boolean("is_active").notNull().default(true),
   isBootstrapAdmin: boolean("is_bootstrap_admin").notNull().default(false),
+  mustResetPassword: boolean("must_reset_password").notNull().default(false),
+  preferences: jsonb("preferences").default({}).$type<{ lastGoverningState?: string }>(),
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

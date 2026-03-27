@@ -7,6 +7,7 @@ import Home from "@/pages/Home";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/Login";
 import Setup from "@/pages/Setup";
+import SetPassword from "@/pages/SetPassword";
 import SecurityPolicy from "@/pages/SecurityPolicy";
 import AdminSecuritySpec from "@/pages/AdminSecuritySpec";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
@@ -39,7 +40,7 @@ function RequireAuth({ children, minRole }: {
 
 // ── Top-level router: entire routing is gated on setup + auth state ────────
 function Router() {
-  const { loading, needsSetup } = useAuth();
+  const { loading, needsSetup, user } = useAuth();
 
   // Full-page spinner while auth state is resolving
   if (loading) {
@@ -56,6 +57,11 @@ function Router() {
   // ── Phase 1: No users exist — only the setup screen is accessible ─────
   if (needsSetup) {
     return <Setup />;
+  }
+
+  // ── Phase 1b: Logged in but must set a password first ─────────────────
+  if (user?.mustResetPassword) {
+    return <SetPassword />;
   }
 
   // ── Phase 2: Users exist — normal authenticated routing ───────────────

