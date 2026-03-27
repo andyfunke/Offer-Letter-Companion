@@ -2,7 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { db, usersTable } from "@workspace/db";
-import { eq, or, count } from "drizzle-orm";
+import { eq, or, count, sql } from "drizzle-orm";
 import { verifyPassword, hashPassword } from "../lib/passwords";
 import { createSession, destroySession, COOKIE_NAME, SESSION_TTL_MS } from "../lib/session";
 import { auditEvent } from "../middleware/audit";
@@ -39,13 +39,14 @@ router.post("/login", loginLimiter, async (req, res) => {
   const { username, password } = parsedBody;
 
   try {
+    const usernameLower = username.toLowerCase();
     const [user] = await db
       .select()
       .from(usersTable)
       .where(
         or(
-          eq(usersTable.username, username),
-          eq(usersTable.email, username),
+          eq(sql`lower(${usersTable.username})`, usernameLower),
+          eq(sql`lower(${usersTable.email})`, usernameLower),
         ),
       )
       .limit(1);
