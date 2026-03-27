@@ -83,19 +83,31 @@ router.put("/letterhead", requireAuth, requireRole("admin"), async (req, res) =>
     const b64 = buf.toString("base64");
     await db.insert(appSettingsTable).values({ key: "letterhead", valueText: b64, updatedAt: new Date() })
       .onConflictDoUpdate({ target: appSettingsTable.key, set: { valueText: b64, updatedAt: new Date() } });
-    auditEvent("LETTERHEAD_UPDATED", { bytes: buf.length, userId: req.user!.id });
+    // Persist the original filename so the preview footer can reference it
+    const originalName = (req.headers["x-filename"] as string | undefined)?.trim() || null;
+    if (originalName) {
+      await db.insert(appSettingsTable).values({ key: "letterhead_filename", valueText: originalName, updatedAt: new Date() })
+        .onConflictDoUpdate({ target: appSettingsTable.key, set: { valueText: originalName, updatedAt: new Date() } });
+    }
+    auditEvent("LETTERHEAD_UPDATED", { bytes: buf.length, filename: originalName, userId: req.user!.id });
     res.json({ ok: true, bytes: buf.length });
   } catch {
     res.status(500).json({ error: "Failed to upload letterhead." });
   }
 });
 
-// GET /api/admin/letterhead/status  — check if letterhead is present
+// GET /api/admin/letterhead/status  — check if letterhead is present + return filename
 router.get("/letterhead/status", requireAuth, async (_req, res) => {
   try {
     const [setting] = await db.select({ key: appSettingsTable.key, updatedAt: appSettingsTable.updatedAt })
       .from(appSettingsTable).where(eq(appSettingsTable.key, "letterhead")).limit(1);
-    res.json({ present: !!setting, updatedAt: setting?.updatedAt ?? null });
+    const [filenameSetting] = await db.select({ valueText: appSettingsTable.valueText })
+      .from(appSettingsTable).where(eq(appSettingsTable.key, "letterhead_filename")).limit(1);
+    res.json({
+      present: !!setting,
+      updatedAt: setting?.updatedAt ?? null,
+      filename: filenameSetting?.valueText ?? null,
+    });
   } catch {
     res.status(500).json({ error: "Failed to check letterhead status." });
   }

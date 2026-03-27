@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiBase } from '@/hooks/use-auth';
 import { Upload, Download, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
 
-interface LetterheadStatus { present: boolean; updatedAt: string | null; }
+interface LetterheadStatus { present: boolean; updatedAt: string | null; filename: string | null; }
 
 export default function AdminLetterhead() {
   const { toast } = useToast();
@@ -34,7 +34,7 @@ export default function AdminLetterhead() {
       const r = await fetch(`${apiBase()}/admin/letterhead`, {
         method: 'PUT',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/octet-stream' },
+        headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': file.name },
         body: buf,
       });
       if (r.ok) {

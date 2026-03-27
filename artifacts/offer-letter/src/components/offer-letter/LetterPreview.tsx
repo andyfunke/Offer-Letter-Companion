@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useOfferStore } from '@/hooks/use-offer-store';
 import { format } from 'date-fns';
 import { getClausesForScenario, ScenarioId, ClauseRecord } from '@/data/clause-library';
 import { buildTokenMap, renderSegments, RenderedSegment } from '@/lib/render-clause';
+import { apiBase } from '@/hooks/use-auth';
 
 // ─── Segment renderer ──────────────────────────────────────
 function RenderSegments({ segments }: { segments: RenderedSegment[] }) {
@@ -90,6 +91,14 @@ function SignatureBlock({ candidateName, formData }: { candidateName: string; fo
 export function LetterPreview() {
   const { state } = useOfferStore();
   const { formData, fieldStates } = state;
+
+  const [letterheadFilename, setLetterheadFilename] = useState<string | null>(null);
+  useEffect(() => {
+    fetch(`${apiBase()}/admin/letterhead/status`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.filename) setLetterheadFilename(d.filename); })
+      .catch(() => {});
+  }, []);
 
   const scenario = (formData.scenario_type || 'new_hire_salaried') as ScenarioId;
   const clauses = getClausesForScenario(scenario);
@@ -225,9 +234,12 @@ export function LetterPreview() {
       <SignatureBlock candidateName={candidateName} formData={formData} />
 
       {/* Source integrity note (subtle, for internal users) */}
-      <div className="mt-8 pt-4 border-t border-slate-100">
+      <div className="mt-8 pt-4 border-t border-slate-100 space-y-0.5">
         <p className="text-[10px] text-slate-300 text-center">
           Clause source: {clauses[0]?.source_file_name ?? scenario}
+        </p>
+        <p className="text-[10px] text-slate-300 text-center">
+          Letterhead template: {letterheadFilename ?? '(none configured)'}
         </p>
       </div>
     </div>
