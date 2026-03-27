@@ -16,7 +16,7 @@ import {
   securityNoticeHeader,
 } from "./middleware/security";
 import { auditLogger } from "./middleware/audit";
-import { attachUser } from "./middleware/auth-guard";
+import { attachUser, requireAuth, requireRole } from "./middleware/auth-guard";
 import { MAX_JSON_BODY_SIZE, SECURITY_CONFIG } from "./config/security";
 
 const app: Express = express();
@@ -68,8 +68,8 @@ app.use(attachUser);
 // ── 11. Routes ────────────────────────────────────────────────────────────
 app.use("/api", router);
 
-// ── 12. Security config summary (non-sensitive) ───────────────────────────
-app.get("/api/security/config-summary", (_req, res) => {
+// ── 12. Security config summary (system_admin only) ──────────────────────
+app.get("/api/security/config-summary", requireAuth, requireRole("system_admin"), (_req, res) => {
   res.json({
     rateLimitWindowMs: SECURITY_CONFIG.rateLimitWindowMs,
     rateLimitMaxRequests: SECURITY_CONFIG.rateLimitMaxRequests,

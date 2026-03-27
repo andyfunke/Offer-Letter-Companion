@@ -2,6 +2,8 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { bootstrapAdmin } from "./lib/bootstrap";
 import { purgeExpiredSessions } from "./lib/session";
+import { db, offerDraftsTable } from "@workspace/db";
+import { lt } from "drizzle-orm";
 
 const rawPort = process.env["PORT"];
 
@@ -25,6 +27,18 @@ try {
 // ── Purge expired sessions once on startup, then every hour ───────────────
 purgeExpiredSessions().catch(() => {});
 setInterval(() => purgeExpiredSessions().catch(() => {}), 60 * 60 * 1000);
+
+// ── Purge old offer drafts (older than 24h) every hour ───────────────────
+async function purgeOldDrafts() {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  try {
+    await db.delete(offerDraftsTable).where(lt(offerDraftsTable.createdAt, cutoff));
+  } catch (err) {
+    logger.warn({ err }, "Draft purge failed — will retry next cycle");
+  }
+}
+purgeOldDrafts().catch(() => {});
+setInterval(() => purgeOldDrafts().catch(() => {}), 60 * 60 * 1000);
 
 app.listen(port, (err) => {
   if (err) {
