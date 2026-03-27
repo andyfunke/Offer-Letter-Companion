@@ -30,7 +30,7 @@ function RenderSegments({ segments }: { segments: RenderedSegment[] }) {
 function ClauseBlock({ clause, tokenMap }: { clause: ClauseRecord; tokenMap: Record<string, string> }) {
   const segments = renderSegments(clause.tokenized_text, tokenMap);
   return (
-    <p className="mb-4 leading-relaxed text-[13px]">
+    <p className="mb-4 leading-relaxed">
       <RenderSegments segments={segments} />
     </p>
   );
@@ -38,13 +38,13 @@ function ClauseBlock({ clause, tokenMap }: { clause: ClauseRecord; tokenMap: Rec
 
 // ─── Salutation ──────────────────────────────────────────────
 function Salutation({ name }: { name: string }) {
-  return <p className="mb-6 text-[13px]">Dear {name || '[Name]'},</p>;
+  return <p className="mb-6">Dear {name || '[Name]'},</p>;
 }
 
 // ─── Intro line (salaried scenarios) ────────────────────────
 function TermsIntroLine() {
   return (
-    <p className="mb-4 text-[13px]">
+    <p className="mb-4">
       The following terms and conditions of this offer are set out below:
     </p>
   );
@@ -52,24 +52,36 @@ function TermsIntroLine() {
 
 // ─── Signature block ─────────────────────────────────────────
 function SignatureBlock({ candidateName, formData }: { candidateName: string; formData: Record<string, any> }) {
+  const year = new Date().getFullYear();
   return (
-    <div className="mt-10">
-      <p className="mb-6 text-[13px]">Sincerely,</p>
-      <div className="grid grid-cols-2 gap-10 mt-8 pt-8 border-t border-slate-200">
+    <div className="mt-8">
+      <p className="mb-10">Sincerely,</p>
+
+      {/* Two-column: Renee (left) + Gina (right) */}
+      <div className="grid grid-cols-2 gap-12">
         <div>
-          <div className="border-b border-black mb-2 mt-10"></div>
-          <p className="font-bold text-[13px]">{formData.company_representative_name || 'Gina Myers'}</p>
-          <p className="text-[12px] text-slate-500">{formData.company_representative_title || 'President & General Manager'}</p>
+          {/* signing space */}
+          <div className="h-16" />
+          <p className="font-bold">Renee Karikas</p>
+          <p className="text-slate-500">Sr. Human Resources Generalist</p>
         </div>
         <div>
-          <div className="border-b border-black mb-2 mt-10"></div>
-          <p className="font-bold text-[13px]">{candidateName || '[Candidate Name]'}</p>
-          <p className="text-[12px] text-slate-500">Candidate</p>
+          <div className="h-16" />
+          <p className="font-bold">{formData.company_representative_name || 'Gina Myers'}</p>
+          <p className="text-slate-500">{formData.company_representative_title || 'President & General Manager'}</p>
         </div>
       </div>
-      <p className="text-[12px] text-slate-400 mt-6">
-        The above terms and conditions of employment are acceptable to me, dated this __________, {new Date().getFullYear()}.
+
+      {/* Acceptance */}
+      <p className="mt-10">
+        The above terms and conditions of employment are acceptable to me, dated this date of __________________ {year}.
       </p>
+
+      {/* Candidate signature */}
+      <div className="mt-10">
+        <div className="border-b border-black w-56 mb-1" />
+        <p className="font-bold">{candidateName || '[Candidate Name]'}</p>
+      </div>
     </div>
   );
 }
@@ -162,7 +174,10 @@ export function LetterPreview() {
   const isSalariedScenario = ['new_hire_salaried', 'promotion_hourly_to_salary', 'site_to_site_transfer_salary'].includes(scenario);
 
   return (
-    <div className="bg-white rounded-sm shadow-xl border border-black/5 p-10 h-full overflow-y-auto letter-document">
+    <div
+      className="bg-white rounded-sm shadow-xl border border-black/5 p-10 h-full overflow-y-auto letter-document"
+      style={{ fontFamily: 'Arial, sans-serif', fontSize: '10pt' }}
+    >
       {/* Letterhead Header */}
       <div className="flex items-start justify-between border-b-2 border-primary pb-6 mb-8">
         <div className="flex items-center gap-3">
@@ -173,7 +188,7 @@ export function LetterPreview() {
           />
           <div className="font-sans font-bold text-xl tracking-tight text-foreground">KINROSS</div>
         </div>
-        <div className="text-right text-sm text-slate-500 font-sans">
+        <div className="text-right text-slate-500 font-sans" style={{ fontSize: '10pt' }}>
           <p>Kinross Gold Corporation</p>
           <p>25 York Street, 17th Floor</p>
           <p>Toronto, ON M5J 2V5</p>
@@ -181,15 +196,15 @@ export function LetterPreview() {
       </div>
 
       {/* Letter Date */}
-      <p className="mb-6 text-[13px]">{formattedDate}</p>
+      <p className="mb-6">{formattedDate}</p>
 
       {/* Candidate Address Block */}
-      <div className="mb-8 text-[13px]">
+      <div className="mb-8">
         <p className="font-semibold">{candidateName}</p>
         {formData.candidate_email && <p className="text-slate-500">{formData.candidate_email}</p>}
       </div>
 
-      <p className="mb-6 text-xs text-slate-500 italic">Private and Confidential</p>
+      <p className="mb-6 text-slate-500 italic">Private and Confidential</p>
 
       {/* Salutation */}
       <Salutation name={candidateName} />

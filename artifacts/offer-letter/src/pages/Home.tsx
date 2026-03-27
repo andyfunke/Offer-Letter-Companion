@@ -208,9 +208,16 @@ function OfferEditor() {
     if (closingPara) footerLines.push(renderToString(closingPara.tokenized_text, tokenMap), '');
     const closingContact = clauses.find(c => c.role === 'CLOSING_CONTACT');
     if (closingContact) footerLines.push(renderToString(closingContact.tokenized_text, tokenMap), '');
-    footerLines.push('Sincerely,', '');
-    footerLines.push(formData.company_representative_name || 'Gina Myers');
-    footerLines.push(formData.company_representative_title || 'President & General Manager');
+
+    // ── Signature block (structured for proper two-column docx layout) ─────
+    const signatureBlock = {
+      hrName: 'Renee Karikas',
+      hrTitle: 'Sr. Human Resources Generalist',
+      mgmtName: formData.company_representative_name || 'Gina Myers',
+      mgmtTitle: formData.company_representative_title || 'President & General Manager',
+      candidateName,
+      year: new Date().getFullYear(),
+    };
 
     // ── Try .docx export via server ────────────────────────────────────────
     try {
@@ -218,7 +225,7 @@ function OfferEditor() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ header: { lines: headerLines }, paragraphs, footer: { lines: footerLines } }),
+        body: JSON.stringify({ header: { lines: headerLines }, paragraphs, footer: { lines: footerLines }, signatureBlock }),
       });
 
       if (response.ok) {

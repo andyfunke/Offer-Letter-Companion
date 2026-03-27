@@ -4,20 +4,17 @@
  * Accepts pre-rendered offer letter segments from the client, merges them into
  * the stored letterhead .docx template, and returns the resulting file.
  *
+ * Font: Arial 10pt throughout (sz=20 in OOXML half-points).
+ *
  * Request body (JSON):
  *   {
- *     header: {                           // preamble lines (date, name, etc.)
- *       lines: string[]
- *     },
- *     paragraphs: Array<{                 // numbered clauses
- *       segments: Array<{
- *         kind: "text" | "filled" | "unfilled";
- *         value?: string;
- *         token?: string;
- *       }>
- *     }>,
- *     footer: {                           // closing lines
- *       lines: string[]
+ *     header: { lines: string[] },
+ *     paragraphs: Array<{ segments: Array<{ kind, value?, token? }> }>,
+ *     footer: { lines: string[] },            // closing paragraphs only
+ *     signatureBlock?: {                       // structured two-column signature
+ *       hrName: string,   hrTitle: string,
+ *       mgmtName: string, mgmtTitle: string,
+ *       candidateName: string, year: number
  *     }
  *   }
  */
@@ -33,6 +30,8 @@ const router = Router();
 
 // ── OOXML helpers ──────────────────────────────────────────────────────────
 
+const FONT_SZ = 20; // 10pt in half-points
+
 function xmlEscape(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -42,13 +41,16 @@ function xmlEscape(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
+/** Build run properties (font + size + optional bold) */
+function rPr(bold = false, sz = FONT_SZ): string {
+  const b = bold ? "<w:b/><w:bCs/>" : "";
+  return `<w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>${b}<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr>`;
+}
+
 function makeRun(text: string, bold = false): string {
   const escaped = xmlEscape(text);
   const space = text.startsWith(" ") || text.endsWith(" ") ? ' xml:space="preserve"' : "";
-  if (bold) {
-    return `<w:r><w:rPr><w:b/><w:bCs/></w:rPr><w:t${space}>${escaped}</w:t></w:r>`;
-  }
-  return `<w:r><w:t${space}>${escaped}</w:t></w:r>`;
+  return `<w:r>${rPr(bold)}<w:t${space}>${escaped}</w:t></w:r>`;
 }
 
 type Segment = { kind: string; value?: string; token?: string };
@@ -65,19 +67,57 @@ function segmentsToRuns(segments: Segment[]): string {
     .join("");
 }
 
-/** Wrap runs in a paragraph element with optional numbering */
-function makeParagraph(inner: string, styleId = "Normal"): string {
-  return `<w:p><w:pPr><w:pStyle w:val="${styleId}"/></w:pPr>${inner}</w:p>`;
+/** Wrap runs in a paragraph */
+function makeParagraph(inner: string): string {
+  return `<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr>${inner}</w:p>`;
 }
 
-/** A plain text paragraph (single run, no bold) */
-function textParagraph(text: string): string {
-  return makeParagraph(makeRun(text));
+/** Plain text paragraph (single run) */
+function textParagraph(text: string, bold = false): string {
+  return makeParagraph(makeRun(text, bold));
 }
 
-/** An empty paragraph (line break) */
+/** Empty paragraph / line break */
 function emptyParagraph(): string {
   return `<w:p/>`;
+}
+
+/** Paragraph with explicit spacing override (for pPr) */
+function spacedParagraph(inner: string, spaceBefore = 0, spaceAfter = 0): string {
+  return `<w:p><w:pPr><w:pStyle w:val="Normal"/><w:spacing w:before="${spaceBefore}" w:after="${spaceAfter}"/></w:pPr>${inner}</w:p>`;
+}
+
+// ── Two-column signature table ─────────────────────────────────────────────
+interface SigBlock {
+  hrName: string;
+  hrTitle: string;
+  mgmtName: string;
+  mgmtTitle: string;
+  candidateName: string;
+  year: number;
+}
+
+function makeSignatureTable(sig: SigBlock): string {
+  const colW = 4500; // ~half page each in twips
+  const noBorder = `<w:top w:val="none" w:sz="0" w:space="0" w:color="auto"/><w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/><w:bottom w:val="none" w:sz="0" w:space="0" w:color="auto"/><w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/><w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/><w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/>`;
+
+  const tblPr = `<w:tblPr><w:tblStyle w:val="TableNormal"/><w:tblW w:w="${colW * 2}" w:type="dxa"/><w:tblBorders>${noBorder}</w:tblBorders><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="144" w:type="dxa"/></w:tblCellMar></w:tblPr>`;
+  const tblGrid = `<w:tblGrid><w:gridCol w:w="${colW}"/><w:gridCol w:w="${colW}"/></w:tblGrid>`;
+
+  function tcPr(): string {
+    return `<w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:tcBorders>${noBorder}</w:tcBorders></w:tcPr>`;
+  }
+
+  // Blank lines for signing space (6 empty paragraphs each)
+  const sigSpace = Array(6).fill(emptyParagraph()).join("");
+
+  function sigCell(name: string, title: string): string {
+    return `<w:tc>${tcPr()}${sigSpace}${textParagraph(name, true)}${textParagraph(title)}</w:tc>`;
+  }
+
+  const sigRow = `<w:tr>${sigCell(sig.hrName, sig.hrTitle)}${sigCell(sig.mgmtName, sig.mgmtTitle)}</w:tr>`;
+
+  return `<w:tbl>${tblPr}${tblGrid}${sigRow}</w:tbl>`;
 }
 
 // ── Schema ─────────────────────────────────────────────────────────────────
@@ -88,10 +128,20 @@ const segmentSchema = z.object({
   token: z.string().optional(),
 });
 
+const signatureBlockSchema = z.object({
+  hrName: z.string(),
+  hrTitle: z.string(),
+  mgmtName: z.string(),
+  mgmtTitle: z.string(),
+  candidateName: z.string(),
+  year: z.number().int(),
+}).optional();
+
 const exportSchema = z.object({
   header: z.object({ lines: z.array(z.string()) }),
   paragraphs: z.array(z.object({ segments: z.array(segmentSchema) })),
   footer: z.object({ lines: z.array(z.string()) }),
+  signatureBlock: signatureBlockSchema,
 });
 
 // ── Route ──────────────────────────────────────────────────────────────────
@@ -121,11 +171,7 @@ router.post("/docx", requireAuth, async (req, res) => {
 
     // Header lines (date, name, address, salutation…)
     for (const line of body.header.lines) {
-      if (line === "") {
-        bodyParts.push(emptyParagraph());
-      } else {
-        bodyParts.push(textParagraph(line));
-      }
+      bodyParts.push(line === "" ? emptyParagraph() : textParagraph(line));
     }
 
     // Numbered clause paragraphs
@@ -137,13 +183,39 @@ router.post("/docx", requireAuth, async (req, res) => {
       bodyParts.push(emptyParagraph());
     });
 
-    // Footer lines
+    // Footer lines (closing paragraph / contact)
     for (const line of body.footer.lines) {
-      if (line === "") {
-        bodyParts.push(emptyParagraph());
-      } else {
-        bodyParts.push(textParagraph(line));
-      }
+      bodyParts.push(line === "" ? emptyParagraph() : textParagraph(line));
+    }
+
+    // ── Signature block ──────────────────────────────────────────────────
+    const sig = body.signatureBlock;
+    if (sig) {
+      // "Sincerely,"
+      bodyParts.push(emptyParagraph());
+      bodyParts.push(textParagraph("Sincerely,"));
+      bodyParts.push(emptyParagraph());
+
+      // Two-column table: HR (left) + Management (right)
+      bodyParts.push(makeSignatureTable(sig));
+
+      // Acceptance statement
+      bodyParts.push(emptyParagraph());
+      bodyParts.push(emptyParagraph());
+      bodyParts.push(textParagraph(
+        `The above terms and conditions of employment are acceptable to me, dated this date of __________________ ${sig.year}.`
+      ));
+
+      // Candidate signature line + name
+      bodyParts.push(emptyParagraph());
+      bodyParts.push(emptyParagraph());
+      bodyParts.push(emptyParagraph());
+      bodyParts.push(textParagraph("__________________________"));
+      bodyParts.push(textParagraph(sig.candidateName, true));
+    } else {
+      // Fallback: plain Sincerely block (no signatureBlock supplied)
+      bodyParts.push(emptyParagraph());
+      bodyParts.push(textParagraph("Sincerely,"));
     }
 
     // 4. Read existing document.xml and inject body content
@@ -154,24 +226,22 @@ router.post("/docx", requireAuth, async (req, res) => {
     }
     const docXml = await docXmlFile.async("string");
 
-    // Replace the body content: keep <w:body> open tag and <w:sectPr>…</w:body>, replace everything in between
+    // Replace the body content; keep <w:sectPr>…</w:body>
     const sectPrMatch = docXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/);
     const sectPr = sectPrMatch ? sectPrMatch[0] : "";
 
-    const bodyStart = docXml.indexOf("<w:body>") + "<w:body>".length;
-    const bodyContent = bodyParts.join("") + sectPr;
     const newDocXml =
       docXml.slice(0, docXml.indexOf("<w:body>") + "<w:body>".length) +
-      bodyContent +
+      bodyParts.join("") +
+      sectPr +
       "</w:body></w:document>";
 
-    // Verify we didn't corrupt the outer structure
     if (!newDocXml.includes("<w:body>") || !newDocXml.includes("</w:body>")) {
       res.status(500).json({ error: "Failed to generate document structure." });
       return;
     }
 
-    // 5. Update the ZIP and return the new .docx
+    // 5. Update the ZIP and return
     zip.file("word/document.xml", newDocXml);
     const outputBuf = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 
