@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth, apiBase } from '@/hooks/use-auth';
-import { Shield, Eye, EyeOff, Loader2, CheckCircle, Lock } from 'lucide-react';
+import { Shield, Users, Check, Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,10 +21,10 @@ export default function Setup() {
   const [, navigate] = useLocation();
 
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [role, setRole] = useState('system_admin');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -32,7 +32,6 @@ export default function Setup() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
-
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     if (password.length < 12) { setError('Password must be at least 12 characters.'); return; }
 
@@ -42,19 +41,13 @@ export default function Setup() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          username: username.trim(),
-          password,
-          email: email.trim() || undefined,
-        }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
       const json = await r.json();
       if (!r.ok) { setError(json.error ?? 'Setup failed.'); return; }
-
-      // Mark done, update auth context, then navigate into the app
       setDone(true);
       completeSetup(json);
-      setTimeout(() => navigate('/'), 1400);
+      setTimeout(() => navigate('/'), 1200);
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -65,174 +58,183 @@ export default function Setup() {
   const strength = passwordStrength(password);
   const canSubmit = username.trim().length >= 2 && password.length >= 12 && password === confirm && !loading;
 
-  // ── Success flash ───────────────────────────────────────────────────────
   if (done) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center max-w-xs">
-          <div className="inline-flex w-16 h-16 items-center justify-center rounded-full bg-emerald-100 mb-5 animate-in zoom-in duration-300">
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex w-16 h-16 items-center justify-center rounded-full bg-emerald-100 mb-4 animate-in zoom-in duration-300">
             <CheckCircle className="w-9 h-9 text-emerald-600" />
           </div>
-          <h1 className="font-serif text-2xl font-bold mb-2">Account created</h1>
+          <h2 className="font-serif text-xl font-bold mb-1">Account created</h2>
           <p className="text-muted-foreground text-sm">Signing you in…</p>
         </div>
       </div>
     );
   }
 
-  // ── Setup form ──────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-background flex">
 
-        {/* Header */}
-        <div className="text-center mb-7">
-          <div className="inline-flex w-14 h-14 items-center justify-center rounded-full bg-primary/10 mb-4">
-            <Shield className="w-7 h-7 text-primary" />
+      {/* Sidebar — mirrors AdminLayout exactly */}
+      <div className="w-56 bg-card border-r flex flex-col shrink-0">
+        <div className="p-4 border-b">
+          <div className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-primary" />
+            <span className="font-semibold text-sm">Admin Panel</span>
           </div>
-          <h1 className="font-serif text-2xl font-bold">Welcome to Kinross HR</h1>
-          <p className="text-muted-foreground text-sm mt-1.5">
-            Create your admin account to get started.
+          <p className="text-xs text-muted-foreground mt-0.5">First-time setup</p>
+        </div>
+
+        <nav className="flex-1 p-3 space-y-0.5">
+          {/* Only Users nav item is relevant during setup */}
+          <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm bg-primary/10 text-primary font-medium">
+            <Users className="w-4 h-4" /> Users
+          </div>
+        </nav>
+
+        <div className="border-t p-4">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Create the first admin account to unlock the application.
           </p>
         </div>
+      </div>
 
-        {/* "First time only" badge */}
-        <div className="flex items-center gap-2 justify-center mb-6">
-          <div className="h-px flex-1 bg-border" />
-          <span className="text-xs text-muted-foreground px-2 whitespace-nowrap flex items-center gap-1.5">
-            <Lock className="w-3 h-3" /> One-time setup
-          </span>
-          <div className="h-px flex-1 bg-border" />
+      {/* Main content — mirrors AdminLayout */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Breadcrumb bar */}
+        <div className="h-12 border-b bg-card/50 flex items-center px-6 gap-2 text-sm text-muted-foreground shrink-0">
+          <span>Admin</span>
+          <span className="text-muted-foreground/50">›</span>
+          <span className="text-foreground">Users</span>
         </div>
 
-        <Card className="shadow-xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Create First Admin Account</CardTitle>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              This account has full system access. You can add more users from the admin panel afterward.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Page body */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-4xl">
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-2xl font-serif font-bold">User Management</h1>
+            </div>
 
-              {/* Username */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">
-                  Username <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  autoComplete="username"
-                  placeholder="e.g. admin"
-                  required
-                  disabled={loading}
-                  autoFocus
-                />
-                <p className="text-xs text-muted-foreground">Letters, numbers, _ . - only</p>
-              </div>
+            {/* Create user card — pre-opened, no close button during setup */}
+            <Card className="mb-6 border-primary/30">
+              <CardHeader>
+                <CardTitle className="text-base">Create Account</CardTitle>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  No accounts exist yet. Create the first admin account to get started.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit}>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
 
-              {/* Email */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">
-                  Email <span className="text-muted-foreground text-xs font-normal">(optional)</span>
-                </label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  autoComplete="email"
-                  placeholder="hr@kinross.com"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Password */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">
-                  Password <span className="text-destructive">*</span>
-                </label>
-                <div className="relative">
-                  <Input
-                    type={showPw ? 'text' : 'password'}
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    autoComplete="new-password"
-                    placeholder="12+ characters"
-                    required
-                    disabled={loading}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    tabIndex={-1}
-                  >
-                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {/* Strength bar */}
-                {password.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-300 ${strength.color}`}
-                        style={{ width: `${strength.pct}%` }}
+                    {/* Username */}
+                    <div>
+                      <label className="text-xs font-medium mb-1 block">
+                        Username <span className="text-destructive">*</span>
+                      </label>
+                      <Input
+                        value={username}
+                        onChange={e => setUsername(e.target.value)}
+                        autoComplete="username"
+                        placeholder="e.g. andy"
+                        required
+                        disabled={loading}
+                        autoFocus
                       />
                     </div>
-                    <p className={`text-xs font-medium ${
-                      strength.pct <= 33 ? 'text-red-600' :
-                      strength.pct <= 60 ? 'text-amber-600' :
-                      strength.pct <= 80 ? 'text-blue-600' : 'text-emerald-600'
-                    }`}>{strength.label}</p>
+
+                    {/* Role — locked to system_admin for first user */}
+                    <div>
+                      <label className="text-xs font-medium mb-1 block">Role</label>
+                      <select
+                        className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                        value={role}
+                        onChange={e => setRole(e.target.value)}
+                        disabled={loading}
+                      >
+                        <option value="recruiter">Recruiter</option>
+                        <option value="hr_admin">HR Admin</option>
+                        <option value="system_admin">System Admin</option>
+                      </select>
+                    </div>
+
+                    {/* Password */}
+                    <div>
+                      <label className="text-xs font-medium mb-1 block">
+                        Password <span className="text-destructive">*</span>
+                        <span className="font-normal text-muted-foreground ml-1">(12+ chars)</span>
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type={showPw ? 'text' : 'password'}
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          autoComplete="new-password"
+                          placeholder="12+ characters"
+                          required
+                          disabled={loading}
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPw(v => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          tabIndex={-1}
+                        >
+                          {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {password.length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-300 ${strength.color}`} style={{ width: `${strength.pct}%` }} />
+                          </div>
+                          {strength.label && (
+                            <p className={`text-xs font-medium ${strength.pct <= 33 ? 'text-red-600' : strength.pct <= 60 ? 'text-amber-600' : strength.pct <= 80 ? 'text-blue-600' : 'text-emerald-600'}`}>
+                              {strength.label}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Confirm */}
+                    <div>
+                      <label className="text-xs font-medium mb-1 block">
+                        Confirm Password <span className="text-destructive">*</span>
+                      </label>
+                      <Input
+                        type={showPw ? 'text' : 'password'}
+                        value={confirm}
+                        onChange={e => setConfirm(e.target.value)}
+                        autoComplete="new-password"
+                        placeholder="Re-enter password"
+                        required
+                        disabled={loading}
+                      />
+                      {confirm.length > 0 && confirm !== password && (
+                        <p className="text-xs text-destructive mt-1">Passwords do not match</p>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* Confirm */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">
-                  Confirm Password <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  type={showPw ? 'text' : 'password'}
-                  value={confirm}
-                  onChange={e => setConfirm(e.target.value)}
-                  autoComplete="new-password"
-                  placeholder="Re-enter password"
-                  required
-                  disabled={loading}
-                />
-                {confirm.length > 0 && confirm !== password && (
-                  <p className="text-xs text-destructive">Passwords do not match</p>
-                )}
-              </div>
+                  {error && <p className="text-xs text-destructive mb-2">{error}</p>}
 
-              {/* Error */}
-              {error && (
-                <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
-                  {error}
-                </div>
-              )}
-
-              {/* Submit */}
-              <Button type="submit" className="w-full" disabled={!canSubmit}>
-                {loading
-                  ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating account…</>
-                  : 'Create account and continue →'
-                }
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Footer note */}
-        <p className="text-center text-xs text-muted-foreground mt-5 leading-relaxed">
-          This screen only appears once. After setup, the app requires login and
-          is restricted to authorized Kinross HR personnel.
-        </p>
+                  <div className="flex gap-2">
+                    <Button type="submit" size="sm" disabled={!canSubmit}>
+                      {loading
+                        ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />Creating…</>
+                        : <><Check className="w-4 h-4 mr-1" /> Create</>
+                      }
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
+
     </div>
   );
 }
