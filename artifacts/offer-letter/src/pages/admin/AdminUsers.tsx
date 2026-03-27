@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserPlus, Check, X, Key, AlertTriangle } from 'lucide-react';
+import { UserPlus, Check, X, Key, AlertTriangle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { KINROSS_SITES } from '@/data/kinross-sites';
 
@@ -15,12 +15,20 @@ function apiBase() {
 }
 
 const ROLE_COLORS: Record<string, string> = {
+  user: 'bg-slate-100 text-slate-700',
+  admin: 'bg-purple-100 text-purple-700',
+  // legacy
   recruiter: 'bg-slate-100 text-slate-700',
   hr_admin: 'bg-blue-100 text-blue-700',
   system_admin: 'bg-purple-100 text-purple-700',
 };
 
-const EMPTY_FORM = { username: '', email: '', password: '', role: 'recruiter', site: '' };
+const ROLE_LABEL: Record<string, string> = {
+  user: 'User', admin: 'Admin',
+  recruiter: 'User (legacy)', hr_admin: 'Admin (legacy)', system_admin: 'Admin (legacy)',
+};
+
+const EMPTY_FORM = { username: '', email: '', password: '', role: 'user', site: '' };
 
 export default function AdminUsers() {
   const { user: me } = useAuth();
@@ -30,6 +38,8 @@ export default function AdminUsers() {
   const [formError, setFormError] = useState('');
   const [resetTarget, setResetTarget] = useState<number | null>(null);
   const [resetPw, setResetPw] = useState('');
+  const [expandedLog, setExpandedLog] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-users'],
@@ -39,62 +49,20 @@ export default function AdminUsers() {
   const createMutation = useMutation({
     mutationFn: (body: typeof form) =>
       fetch(`${apiBase()}/admin/users`, {
-        method: 'POST',
-        credentials: 'include',
+        method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      }).then(async r => {
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error ?? 'Failed');
-        return j;
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-users'] });
-      setCreating(false);
-      setForm(EMPTY_FORM);
-      setFormError('');
-    },
+      }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error ?? 'Failed'); return j; }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); setCreating(false); setForm(EMPTY_FORM); setFormError(''); },
     onError: (e: Error) => setFormError(e.message),
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
-      id === me?.id && !isActive
-        ? Promise.reject(new Error("Cannot deactivate your own account."))
-        : fetch(`${apiBase()}/admin/users/${id}`, {
-            method: 'PUT', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ isActive }),
-          }).then(r => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
-  });
-
-  const roleMutation = useMutation({
-    mutationFn: ({ id, role }: { id: number; role: string }) =>
+  const updateMutation = useMutation({
+    mutationFn: ({ id, ...body }: { id: number; [k: string]: unknown }) =>
       fetch(`${apiBase()}/admin/users/${id}`, {
         method: 'PUT', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role }),
-      }).then(r => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
-  });
-
-  const emailMutation = useMutation({
-    mutationFn: ({ id, email }: { id: number; email: string }) =>
-      fetch(`${apiBase()}/admin/users/${id}`, {
-        method: 'PUT', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email || null }),
-      }).then(r => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
-  });
-
-  const siteMutation = useMutation({
-    mutationFn: ({ id, site }: { id: number; site: string | null }) =>
-      fetch(`${apiBase()}/admin/users/${id}`, {
-        method: 'PUT', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ site: site || null }),
+        body: JSON.stringify(body),
       }).then(r => r.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
@@ -108,6 +76,30 @@ export default function AdminUsers() {
       }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; }),
     onSuccess: () => { setResetTarget(null); setResetPw(''); qc.invalidateQueries({ queryKey: ['admin-users'] }); },
     onError: (e: Error) => alert(e.message),
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: (id: number) =>
+      fetch(`${apiBase()}/admin/users/${id}`, { method: 'DELETE', credentials: 'include' }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) =>
+      fetch(`${apiBase()}/admin/users/${id}?hard=true`, { method: 'DELETE', credentials: 'include' })
+        .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; }),
+    onSuccess: () => { setConfirmDelete(null); qc.invalidateQueries({ queryKey: ['admin-users'] }); },
+    onError: (e: Error) => alert(e.message),
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: (id: number) =>
+      fetch(`${apiBase()}/admin/users/${id}`, {
+        method: 'PUT', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: true }),
+      }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
 
   const users: any[] = data?.users ?? [];
@@ -132,40 +124,24 @@ export default function AdminUsers() {
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="text-xs font-medium mb-1 block">Username *</label>
-                  <Input
-                    value={form.username}
-                    onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
-                    placeholder="e.g. jsmith"
-                    autoFocus
-                  />
+                  <Input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="e.g. jsmith" autoFocus />
                 </div>
                 <div>
                   <label className="text-xs font-medium mb-1 block">Email <span className="text-muted-foreground font-normal">(optional)</span></label>
-                  <Input
-                    type="email"
-                    value={form.email}
-                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="hr@kinross.com"
-                  />
+                  <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="hr@kinross.com" />
                 </div>
                 <div>
                   <label className="text-xs font-medium mb-1 block">Password <span className="text-muted-foreground font-normal">(leave blank for first-login setup)</span></label>
-                  <Input
-                    type="password"
-                    value={form.password}
-                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                    placeholder="12+ chars, or leave blank"
-                  />
+                  <Input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="12+ chars, or leave blank" />
                 </div>
                 <div>
                   <label className="text-xs font-medium mb-1 block">Role</label>
                   <select className="w-full border rounded-md px-3 py-2 text-sm bg-background" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
-                    <option value="recruiter">Recruiter</option>
-                    <option value="hr_admin">HR Admin</option>
-                    <option value="system_admin">System Admin</option>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
                   </select>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <label className="text-xs font-medium mb-1 block">Assigned Site <span className="text-muted-foreground font-normal">(optional)</span></label>
                   <select className="w-full border rounded-md px-3 py-2 text-sm bg-background" value={form.site} onChange={e => setForm(f => ({ ...f, site: e.target.value }))}>
                     <option value="">— No site assigned —</option>
@@ -191,10 +167,12 @@ export default function AdminUsers() {
             {users.map((u: any) => (
               <Card key={u.id} className={u.isActive ? '' : 'opacity-60'}>
                 <CardContent className="py-3 space-y-2">
-                  {/* Top row: identity + status badges */}
+                  {/* Top row */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{u.username}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[u.role] ?? ''}`}>{u.role}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[u.role] ?? 'bg-slate-100'}`}>
+                      {ROLE_LABEL[u.role] ?? u.role}
+                    </span>
                     {!u.isActive && <span className="text-xs text-muted-foreground">(deactivated)</span>}
                     {u.isBootstrapAdmin && <span className="text-xs text-amber-600">(bootstrap admin)</span>}
                     {u.mustResetPassword && (
@@ -204,35 +182,39 @@ export default function AdminUsers() {
                     )}
                   </div>
 
-                  {/* Email + meta row */}
-                  <EmailRow userId={u.id} currentEmail={u.email} onSave={(email) => emailMutation.mutate({ id: u.id, email })} />
+                  {/* Email + meta */}
+                  <EmailRow userId={u.id} currentEmail={u.email}
+                    onSave={(email) => updateMutation.mutate({ id: u.id, email })} />
                   <p className="text-xs text-muted-foreground">
                     Created {u.createdAt ? format(new Date(u.createdAt), 'MMM d, yyyy') : '—'}
                     {u.lastLoginAt ? ` · Last login ${format(new Date(u.lastLoginAt), 'MMM d HH:mm')}` : ' · Never logged in'}
+                    {u.site && ` · ${KINROSS_SITES.find(s => s.id === u.site)?.label ?? u.site}`}
                   </p>
 
-                  {/* Controls row */}
+                  {/* Controls */}
                   <div className="flex items-center gap-1 flex-wrap">
+                    {/* Role selector */}
                     <select
                       className="text-xs border rounded px-2 py-1 bg-background"
-                      value={u.role}
+                      value={['user', 'admin'].includes(u.role) ? u.role : (u.role === 'system_admin' || u.role === 'hr_admin' ? 'admin' : 'user')}
                       disabled={u.id === me?.id}
-                      onChange={e => roleMutation.mutate({ id: u.id, role: e.target.value })}
+                      onChange={e => updateMutation.mutate({ id: u.id, role: e.target.value })}
                     >
-                      <option value="recruiter">Recruiter</option>
-                      <option value="hr_admin">HR Admin</option>
-                      <option value="system_admin">System Admin</option>
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
                     </select>
 
+                    {/* Site selector */}
                     <select
                       className="text-xs border rounded px-2 py-1 bg-background"
                       value={u.site ?? ''}
-                      onChange={e => siteMutation.mutate({ id: u.id, site: e.target.value || null })}
+                      onChange={e => updateMutation.mutate({ id: u.id, site: e.target.value || null })}
                     >
                       <option value="">— No site —</option>
                       {KINROSS_SITES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                     </select>
 
+                    {/* Password reset */}
                     {resetTarget === u.id ? (
                       <div className="flex items-center gap-1">
                         <Input type="password" placeholder="New password (12+)" className="h-7 text-xs w-44" value={resetPw} onChange={e => setResetPw(e.target.value)} />
@@ -246,16 +228,47 @@ export default function AdminUsers() {
                     )}
 
                     {u.id !== me?.id && (
-                      <Button
-                        size="sm"
-                        variant={u.isActive ? 'destructive' : 'outline'}
-                        className="h-7 text-xs"
-                        onClick={() => toggleMutation.mutate({ id: u.id, isActive: !u.isActive })}
-                      >
-                        {u.isActive ? 'Deactivate' : 'Reactivate'}
-                      </Button>
+                      <>
+                        {u.isActive ? (
+                          <Button size="sm" variant="outline" className="h-7 text-xs"
+                            onClick={() => deactivateMutation.mutate(u.id)}>
+                            Deactivate
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" className="h-7 text-xs"
+                            onClick={() => reactivateMutation.mutate(u.id)}>
+                            Reactivate
+                          </Button>
+                        )}
+
+                        {confirmDelete === u.id ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-destructive font-medium">Delete permanently?</span>
+                            <Button size="sm" variant="destructive" className="h-7 text-xs"
+                              onClick={() => deleteMutation.mutate(u.id)} disabled={deleteMutation.isPending}>
+                              Yes, Delete
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+                          </div>
+                        ) : (
+                          <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setConfirmDelete(u.id)}>
+                            <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                          </Button>
+                        )}
+                      </>
                     )}
+
+                    {/* Event log toggle */}
+                    <Button size="sm" variant="ghost" className="h-7 text-xs ml-auto text-muted-foreground"
+                      onClick={() => setExpandedLog(expandedLog === u.id ? null : u.id)}>
+                      {expandedLog === u.id ? <ChevronUp className="w-3.5 h-3.5 mr-1" /> : <ChevronDown className="w-3.5 h-3.5 mr-1" />}
+                      History
+                    </Button>
                   </div>
+
+                  {/* Expandable event log */}
+                  {expandedLog === u.id && <EventLog userId={u.id} />}
                 </CardContent>
               </Card>
             ))}
@@ -263,6 +276,38 @@ export default function AdminUsers() {
         )}
       </div>
     </AdminLayout>
+  );
+}
+
+function EventLog({ userId }: { userId: number }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['user-events', userId],
+    queryFn: () =>
+      fetch(`${apiBase()}/admin/users/${userId}/events`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : { events: [] }),
+  });
+
+  const events: any[] = data?.events ?? [];
+
+  if (isLoading) return <p className="text-xs text-muted-foreground pl-1">Loading history…</p>;
+  if (events.length === 0) return <p className="text-xs text-muted-foreground pl-1 italic">No recorded events yet.</p>;
+
+  return (
+    <div className="border-t pt-2 mt-1">
+      <p className="text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">Account History</p>
+      <div className="space-y-1">
+        {events.map((e: any) => (
+          <div key={e.id} className="flex items-start gap-2 text-xs">
+            <span className="text-muted-foreground shrink-0 tabular-nums">
+              {e.createdAt ? format(new Date(e.createdAt), 'MMM d, yyyy HH:mm') : '—'}
+            </span>
+            <span className="font-medium text-foreground shrink-0">{e.event}</span>
+            {e.detail && <span className="text-muted-foreground">{e.detail}</span>}
+            <span className="text-muted-foreground ml-auto shrink-0">by {e.changedBy}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 export interface AuthUser {
   id: number;
   username: string;
-  role: 'recruiter' | 'hr_admin' | 'system_admin';
+  role: string; // canonical: 'user' | 'admin' (legacy: recruiter | hr_admin | system_admin)
   email: string | null;
   site: string | null;
   mustResetPassword: boolean;
@@ -20,11 +20,11 @@ interface AuthContextValue extends AuthState {
   logout: () => Promise<void>;
   completeSetup: (user: AuthUser) => void;
   passwordReset: () => void;
-  hasRole: (minRole: 'recruiter' | 'hr_admin' | 'system_admin') => boolean;
+  hasRole: (minRole: 'admin' | 'user') => boolean;
   isAdmin: boolean;
 }
 
-const ROLE_RANK = { recruiter: 1, hr_admin: 2, system_admin: 3 } as const;
+const ADMIN_ROLES = new Set(['admin', 'system_admin', 'hr_admin']);
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -76,14 +76,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ user, loading: false, needsSetup: false });
   }, []);
 
-  // Called after a successful password reset to clear the mustResetPassword flag
   const passwordReset = useCallback(() => {
     setState(s => s.user ? { ...s, user: { ...s.user, mustResetPassword: false } } : s);
   }, []);
 
-  const hasRole = useCallback((minRole: 'recruiter' | 'hr_admin' | 'system_admin') => {
+  const hasRole = useCallback((minRole: 'admin' | 'user') => {
     if (!state.user) return false;
-    return (ROLE_RANK[state.user.role] ?? 0) >= ROLE_RANK[minRole];
+    if (minRole === 'admin') return ADMIN_ROLES.has(state.user.role);
+    return true;
   }, [state.user]);
 
   return (
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       completeSetup,
       passwordReset,
       hasRole,
-      isAdmin: state.user ? ROLE_RANK[state.user.role] >= ROLE_RANK.hr_admin : false,
+      isAdmin: state.user ? ADMIN_ROLES.has(state.user.role) : false,
     }}>
       {children}
     </AuthContext.Provider>

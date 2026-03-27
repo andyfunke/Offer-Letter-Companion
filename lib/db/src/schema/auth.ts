@@ -8,7 +8,7 @@ export const usersTable = pgTable("users", {
   username: text("username").notNull().unique(),
   email: text("email"),
   passwordHash: text("password_hash").notNull().default(''),
-  role: text("role").notNull().default("recruiter"), // recruiter | hr_admin | system_admin
+  role: text("role").notNull().default("user"), // user | admin  (legacy: recruiter | hr_admin | system_admin)
   isActive: boolean("is_active").notNull().default(true),
   isBootstrapAdmin: boolean("is_bootstrap_admin").notNull().default(false),
   mustResetPassword: boolean("must_reset_password").notNull().default(false),
@@ -99,6 +99,19 @@ export const ptoOptionsTable = pgTable("pto_options", {
 });
 
 export type PtoOption = typeof ptoOptionsTable.$inferSelect;
+
+// ── User State Events (audit log for user account changes) ────────────────
+export const userEventsTable = pgTable("user_events", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(), // not a FK so records survive user deletion
+  targetUsername: text("target_username").notNull(),
+  event: text("event").notNull(), // CREATED | ROLE_CHANGED | ACTIVATED | DEACTIVATED | PASSWORD_RESET | DELETED
+  changedBy: text("changed_by").notNull(), // username of the admin who made the change
+  detail: text("detail"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type UserEvent = typeof userEventsTable.$inferSelect;
 
 // ── App Settings (key/value store for letterhead template etc.) ────────────
 export const appSettingsTable = pgTable("app_settings", {

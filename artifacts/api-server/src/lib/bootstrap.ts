@@ -1,21 +1,24 @@
-import { db, usersTable } from "@workspace/db";
-import { eq, count, sql } from "drizzle-orm";
+import { db, usersTable, ptoOptionsTable } from "@workspace/db";
+import { eq, count, sql, inArray } from "drizzle-orm";
 import { hashPassword } from "./passwords";
 import { logger } from "./logger";
 
-const SEEDED_USERS: Array<{
-  username: string;
-  password: string;
-  role: "system_admin" | "hr_admin" | "recruiter";
-  site: string | null;
-}> = [
-  { username: "AndyFunke", password: "wemineforgold", role: "system_admin", site: "echo_bay" },
+const SEEDED_USERS = [
+  {
+    username: "AndyFunke",
+    email: "andy.funke@kinross.com",
+    password: "wemineforgold",
+    role: "admin" as const,
+    site: "echo_bay",
+  },
 ];
+
+const SEEDED_PTO_OPTIONS = [96, 120, 136, 160, 176, 200, 216];
 
 export async function ensureSeededUsers(): Promise<void> {
   for (const u of SEEDED_USERS) {
     const [existing] = await db
-      .select({ id: usersTable.id })
+      .select({ id: usersTable.id, email: usersTable.email })
       .from(usersTable)
       .where(eq(sql`lower(${usersTable.username})`, u.username.toLowerCase()))
       .limit(1);
@@ -23,6 +26,7 @@ export async function ensureSeededUsers(): Promise<void> {
       const passwordHash = await hashPassword(u.password);
       await db.insert(usersTable).values({
         username: u.username,
+        email: u.email,
         passwordHash,
         role: u.role,
         site: u.site,
@@ -30,8 +34,32 @@ export async function ensureSeededUsers(): Promise<void> {
         mustResetPassword: false,
       });
       logger.info({ username: u.username }, "Seeded required user account.");
+    } else if (!existing.email) {
+      // Backfill email if missing
+      await db.update(usersTable).set({ email: u.email }).where(eq(usersTable.id, existing.id));
+      logger.info({ username: u.username }, "Backfilled email for seeded user.");
     }
   }
+}
+
+export async function ensurePtoOptions(): Promise<void> {
+  const existing = await db.select({ value: ptoOptionsTable.value }).from(ptoOptionsTable);
+  const existingValues = new Set(existing.map(o => o.value));
+  const missing = SEEDED_PTO_OPTIONS.filter(v => !existingValues.has(v));
+  if (missing.length > 0) {
+    await db.insert(ptoOptionsTable).values(missing.map(value => ({ value })));
+    logger.info({ missing }, "Seeded missing PTO options.");
+  }
+}
+
+// Migrate legacy role names to the canonical user/admin model
+export async function migrateRoles(): Promise<void> {
+  await db.update(usersTable)
+    .set({ role: "admin" })
+    .where(inArray(usersTable.role, ["system_admin", "hr_admin"] as any[]));
+  await db.update(usersTable)
+    .set({ role: "user" })
+    .where(eq(usersTable.role, "recruiter" as any));
 }
 
 export async function bootstrapAdmin(): Promise<void> {

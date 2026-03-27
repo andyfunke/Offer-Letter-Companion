@@ -37,7 +37,7 @@ export const KINROSS_SITES: KinrossSite[] = [
   },
   {
     id: 'echo_bay',
-    label: 'Greens Creek / Echo Bay',
+    label: 'Curlew Basin',
     subsidiaryName: 'Echo Bay Minerals, Inc.',
     location: 'Republic, WA',
     governingState: 'WA',

@@ -6,7 +6,7 @@ import { requireAuth, requireRole } from "../../middleware/auth-guard";
 import { auditEvent } from "../../middleware/audit";
 
 const router = Router();
-router.use(requireAuth, requireRole("hr_admin"));
+router.use(requireAuth, requireRole("admin"));
 
 const VALID_STATUSES = ["new", "triaged", "in_progress", "resolved", "dismissed"] as const;
 

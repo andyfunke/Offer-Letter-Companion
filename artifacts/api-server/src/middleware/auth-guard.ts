@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { validateSession, COOKIE_NAME } from "../lib/session";
-import { hasRole, type Role } from "../lib/rbac";
+import { hasRole } from "../lib/rbac";
 import { auditEvent } from "./audit";
 import type { User } from "@workspace/db";
 
@@ -44,7 +44,7 @@ export function requireAuth(
 }
 
 // ── Require a minimum role level ──────────────────────────────────────────
-export function requireRole(minRole: Role) {
+export function requireRole(minRole: "admin" | "user") {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({ error: "Authentication required." });

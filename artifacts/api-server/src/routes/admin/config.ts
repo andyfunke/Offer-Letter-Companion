@@ -20,7 +20,7 @@ router.get("/pto-options", requireAuth, async (_req, res) => {
 });
 
 // POST /api/admin/pto-options  (system_admin only)
-router.post("/pto-options", requireAuth, requireRole("system_admin"), async (req, res) => {
+router.post("/pto-options", requireAuth, requireRole("admin"), async (req, res) => {
   try {
     const { value } = z.object({ value: z.number().int().positive() }).parse(req.body);
     const [created] = await db.insert(ptoOptionsTable).values({ value }).returning();
@@ -33,7 +33,7 @@ router.post("/pto-options", requireAuth, requireRole("system_admin"), async (req
 });
 
 // DELETE /api/admin/pto-options/:id  (system_admin only)
-router.delete("/pto-options/:id", requireAuth, requireRole("system_admin"), async (req, res) => {
+router.delete("/pto-options/:id", requireAuth, requireRole("admin"), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
@@ -65,7 +65,7 @@ router.get("/letterhead", requireAuth, async (_req, res) => {
 });
 
 // PUT /api/admin/letterhead  — upload/replace letterhead template (raw binary body)
-router.put("/letterhead", requireAuth, requireRole("system_admin"), async (req, res) => {
+router.put("/letterhead", requireAuth, requireRole("admin"), async (req, res) => {
   try {
     const chunks: Buffer[] = [];
     req.on("data", (chunk: Buffer) => chunks.push(chunk));

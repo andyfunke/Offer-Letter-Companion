@@ -1,30 +1,29 @@
-export type Role = "recruiter" | "hr_admin" | "system_admin";
+export type Role = "user" | "admin" | "recruiter" | "hr_admin" | "system_admin";
 
-// ── Role hierarchy (higher index = more privilege) ────────────────────────
-const ROLE_RANK: Record<Role, number> = {
-  recruiter: 1,
-  hr_admin: 2,
-  system_admin: 3,
-};
+// Legacy role aliases — old records in the DB still carry these values
+const ADMIN_ROLES = new Set<string>(["admin", "system_admin"]);
 
-export function hasRole(userRole: string, required: Role): boolean {
-  const userRank = ROLE_RANK[userRole as Role] ?? 0;
-  const requiredRank = ROLE_RANK[required];
-  return userRank >= requiredRank;
+export function isAdminRole(role: string): boolean {
+  return ADMIN_ROLES.has(role);
 }
 
-export const ROLES: Role[] = ["recruiter", "hr_admin", "system_admin"];
-
-export function isValidRole(role: string): role is Role {
-  return ROLES.includes(role as Role);
+export function hasRole(userRole: string, required: "admin" | "user"): boolean {
+  if (required === "admin") return ADMIN_ROLES.has(userRole);
+  return true; // any authenticated user has "user" level
 }
 
-// ── Permission descriptions for the admin UI ─────────────────────────────
-export const ROLE_DESCRIPTIONS: Record<Role, string> = {
-  recruiter:
-    "Can create and edit offer sessions, generate documents, and report issues.",
-  hr_admin:
-    "All recruiter permissions plus template management, letterhead management, and issue review.",
-  system_admin:
-    "Full access including user management, security settings, telemetry, and operational logs.",
+export const ROLES: ["user", "admin"] = ["user", "admin"];
+
+export function isValidRole(role: string): boolean {
+  return role === "user" || role === "admin";
+}
+
+export const ROLE_DESCRIPTIONS: Record<string, string> = {
+  user: "Can create and edit offer sessions and generate documents.",
+  admin: "Full access including user management, PTO configuration, letterhead, and system settings.",
 };
+
+// Normalise a stored role string to canonical "user" | "admin"
+export function normaliseRole(role: string): "user" | "admin" {
+  return ADMIN_ROLES.has(role) ? "admin" : "user";
+}

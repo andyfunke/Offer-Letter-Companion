@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { bootstrapAdmin, ensureSeededUsers } from "./lib/bootstrap";
+import { bootstrapAdmin, ensureSeededUsers, ensurePtoOptions, migrateRoles } from "./lib/bootstrap";
 import { purgeExpiredSessions } from "./lib/session";
 import { db, offerDraftsTable } from "@workspace/db";
 import { lt } from "drizzle-orm";
@@ -24,11 +24,25 @@ try {
   process.exit(1);
 }
 
+// ── Migrate legacy roles to user/admin model ──────────────────────────────
+try {
+  await migrateRoles();
+} catch (err) {
+  logger.warn({ err }, "migrateRoles failed — continuing anyway.");
+}
+
 // ── Ensure required seeded accounts exist ─────────────────────────────────
 try {
   await ensureSeededUsers();
 } catch (err) {
   logger.warn({ err }, "ensureSeededUsers failed — continuing anyway.");
+}
+
+// ── Ensure PTO options are seeded ─────────────────────────────────────────
+try {
+  await ensurePtoOptions();
+} catch (err) {
+  logger.warn({ err }, "ensurePtoOptions failed — continuing anyway.");
 }
 
 // ── Purge expired sessions once on startup, then every hour ───────────────

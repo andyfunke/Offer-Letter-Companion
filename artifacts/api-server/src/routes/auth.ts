@@ -205,7 +205,7 @@ router.post("/setup", async (req, res) => {
       username: body.username,
       email: body.email ?? null,
       passwordHash,
-      role: "system_admin",
+      role: "admin",
       isActive: true,
       isBootstrapAdmin: true,
       mustResetPassword: false,

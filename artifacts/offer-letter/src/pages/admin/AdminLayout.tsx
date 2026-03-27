@@ -4,12 +4,12 @@ import { Shield, Users, AlertCircle, LayoutDashboard, ChevronRight, LogOut, Cale
 import { Button } from '@/components/ui/button';
 
 const NAV = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, minRole: 'hr_admin' as const },
-  { href: '/admin/users', label: 'Users', icon: Users, minRole: 'system_admin' as const },
-  { href: '/admin/issues', label: 'Issues', icon: AlertCircle, minRole: 'hr_admin' as const },
-  { href: '/admin/pto', label: 'PTO Options', icon: Calendar, minRole: 'system_admin' as const },
-  { href: '/admin/letterhead', label: 'Letterhead', icon: FileText, minRole: 'system_admin' as const },
-  { href: '/admin/security-spec', label: 'Security Spec', icon: Shield, minRole: 'system_admin' as const },
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, minRole: 'admin' as const },
+  { href: '/admin/users', label: 'Users', icon: Users, minRole: 'admin' as const },
+  { href: '/admin/issues', label: 'Issues', icon: AlertCircle, minRole: 'admin' as const },
+  { href: '/admin/pto', label: 'PTO Options', icon: Calendar, minRole: 'admin' as const },
+  { href: '/admin/letterhead', label: 'Letterhead', icon: FileText, minRole: 'admin' as const },
+  { href: '/admin/security-spec', label: 'Security Spec', icon: Shield, minRole: 'admin' as const },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
