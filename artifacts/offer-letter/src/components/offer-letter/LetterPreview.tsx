@@ -178,23 +178,6 @@ export function LetterPreview() {
       className="bg-white rounded-sm shadow-xl border border-black/5 p-10 h-full overflow-y-auto letter-document"
       style={{ fontFamily: 'Arial, sans-serif', fontSize: '10pt' }}
     >
-      {/* Letterhead Header */}
-      <div className="flex items-start justify-between border-b-2 border-primary pb-6 mb-8">
-        <div className="flex items-center gap-3">
-          <img
-            src={`${import.meta.env.BASE_URL}images/kinross-logo-placeholder.png`}
-            alt="Kinross Logo"
-            className="w-12 h-12"
-          />
-          <div className="font-sans font-bold text-xl tracking-tight text-foreground">KINROSS</div>
-        </div>
-        <div className="text-right text-slate-500 font-sans" style={{ fontSize: '10pt' }}>
-          <p>Kinross Gold Corporation</p>
-          <p>25 York Street, 17th Floor</p>
-          <p>Toronto, ON M5J 2V5</p>
-        </div>
-      </div>
-
       {/* Letter Date */}
       <p className="mb-6">{formattedDate}</p>
 
