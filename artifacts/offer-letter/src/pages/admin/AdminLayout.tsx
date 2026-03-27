@@ -1,12 +1,14 @@
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
-import { Shield, Users, AlertCircle, LayoutDashboard, ChevronRight, LogOut } from 'lucide-react';
+import { Shield, Users, AlertCircle, LayoutDashboard, ChevronRight, LogOut, Calendar, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const NAV = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, minRole: 'hr_admin' as const },
   { href: '/admin/users', label: 'Users', icon: Users, minRole: 'system_admin' as const },
   { href: '/admin/issues', label: 'Issues', icon: AlertCircle, minRole: 'hr_admin' as const },
+  { href: '/admin/pto', label: 'PTO Options', icon: Calendar, minRole: 'system_admin' as const },
+  { href: '/admin/letterhead', label: 'Letterhead', icon: FileText, minRole: 'system_admin' as const },
   { href: '/admin/security-spec', label: 'Security Spec', icon: Shield, minRole: 'system_admin' as const },
 ];
 

@@ -132,6 +132,7 @@ router.get("/me", (req, res) => {
     username: u.username,
     role: u.role,
     email: u.email,
+    site: u.site ?? null,
     mustResetPassword: u.mustResetPassword ?? false,
   });
 });

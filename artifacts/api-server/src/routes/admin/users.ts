@@ -15,12 +15,14 @@ const createUserSchema = z.object({
   email: z.string().email().optional().or(z.literal('')),
   password: z.string().max(256).optional(), // blank = must reset on first login
   role: z.enum(["recruiter", "hr_admin", "system_admin"]),
+  site: z.string().max(80).nullable().optional(),
 });
 
 const updateUserSchema = z.object({
   email: z.string().email().optional().nullable().or(z.literal('')),
   role: z.enum(["recruiter", "hr_admin", "system_admin"]).optional(),
   isActive: z.boolean().optional(),
+  site: z.string().max(80).nullable().optional(),
 });
 
 const resetPasswordSchema = z.object({
@@ -33,6 +35,7 @@ function safeUser(u: typeof usersTable.$inferSelect) {
     username: u.username,
     email: u.email,
     role: u.role,
+    site: u.site ?? null,
     isActive: u.isActive,
     isBootstrapAdmin: u.isBootstrapAdmin,
     mustResetPassword: u.mustResetPassword,
@@ -71,6 +74,7 @@ router.post("/", async (req, res) => {
       email: emailVal,
       passwordHash,
       role: body.role,
+      site: body.site ?? null,
       isActive: true,
       mustResetPassword,
     }).returning();

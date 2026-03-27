@@ -18,13 +18,15 @@ import {
   AlertTriangle, LayoutDashboard, ClipboardList
 } from 'lucide-react';
 import { SCENARIO_LABELS, ScenarioId, getClausesForScenario, ClauseRecord } from '@/data/clause-library';
-import { buildTokenMap, renderToString } from '@/lib/render-clause';
+import { buildTokenMap, renderToString, renderSegments } from '@/lib/render-clause';
 import { KINROSS_SITES, US_STATES, CA_PROVINCES } from '@/data/kinross-sites';
 import * as Accordion from '@radix-ui/react-accordion';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, apiBase } from '@/hooks/use-auth';
 
 interface HrContact { id: number; username: string; email: string | null; }
+
+interface PtoOption { id: number; value: number; }
 
 function OfferEditor() {
   const { state, dispatch } = useOfferStore();
@@ -34,6 +36,7 @@ function OfferEditor() {
   const createOfferMutation = useCreateOffer();
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
   const [hrContacts, setHrContacts] = useState<HrContact[]>([]);
+  const [ptoOptions, setPtoOptions] = useState<PtoOption[]>([]);
 
   // Load HR contacts list for dropdown
   useEffect(() => {
@@ -43,9 +46,31 @@ function OfferEditor() {
       .catch(() => {});
   }, []);
 
-  // Load user's last governing state preference
+  // Load PTO options
   useEffect(() => {
-    if (!user) return;
+    fetch(`${apiBase()}/admin/pto-options`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setPtoOptions(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
+  // Auto-populate site fields from user's assigned site
+  useEffect(() => {
+    if (!user?.site) return;
+    const site = KINROSS_SITES.find(s => s.id === user.site);
+    if (!site) return;
+    dispatch({ type: 'SET_FIELD_VALUE', field: 'selected_site_id', value: site.id });
+    dispatch({ type: 'SET_FIELD_VALUE', field: 'site_subsidiary_name', value: site.subsidiaryName });
+    dispatch({ type: 'SET_FIELD_VALUE', field: 'site_location', value: site.location });
+    if (site.governingState) {
+      dispatch({ type: 'SET_FIELD_VALUE', field: 'governing_state', value: site.governingState });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Load user's last governing state preference (only for users without assigned site)
+  useEffect(() => {
+    if (!user || user.site) return;
     fetch(`${apiBase()}/auth/preferences`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : {})
       .then(prefs => {
@@ -115,7 +140,7 @@ function OfferEditor() {
     });
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const scenario = (state.formData.scenario_type || 'new_hire_salaried') as ScenarioId;
     const clauses = getClausesForScenario(scenario);
     const tokenMap = buildTokenMap(state.formData);
@@ -141,58 +166,114 @@ function OfferEditor() {
       return c.render_default;
     }
 
-    const lines: string[] = [];
     const candidateName = formData.candidate_full_name || '[Candidate Name]';
-    const letterDate = formData.letter_date ? new Date(formData.letter_date + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '[Date]';
+    const letterDate = formData.letter_date
+      ? new Date(formData.letter_date + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+      : '[Date]';
+    const safeName = candidateName.replace(/[^a-zA-Z0-9]/g, '_');
 
-    lines.push(letterDate);
-    lines.push('');
-    lines.push(candidateName);
-    if (formData.candidate_email) lines.push(formData.candidate_email);
-    lines.push('');
-    lines.push('Private and Confidential');
-    lines.push('');
-    lines.push(`Dear ${candidateName},`);
-    lines.push('');
+    // ── Build header lines ──────────────────────────────────────────────────
+    const headerLines: string[] = [letterDate, '', candidateName];
+    if (formData.candidate_email) headerLines.push(formData.candidate_email);
+    headerLines.push('', 'Private and Confidential', '');
+    headerLines.push(`Dear ${candidateName},`, '');
 
-    const header = clauses.find(c => c.role === 'HEADER_OPENING');
-    if (header) lines.push(renderToString(header.tokenized_text, tokenMap), '');
-
-    const immigration = clauses.find(c => c.role === 'IMMIGRATION_PARAGRAPH');
-    if (immigration && shouldExport(immigration)) lines.push(renderToString(immigration.tokenized_text, tokenMap), '');
-
+    const headerClause = clauses.find(c => c.role === 'HEADER_OPENING');
+    if (headerClause) {
+      headerLines.push(renderToString(headerClause.tokenized_text, tokenMap), '');
+    }
+    const immigrationClause = clauses.find(c => c.role === 'IMMIGRATION_PARAGRAPH');
+    if (immigrationClause && shouldExport(immigrationClause)) {
+      headerLines.push(renderToString(immigrationClause.tokenized_text, tokenMap), '');
+    }
     const isSalaried = ['new_hire_salaried', 'promotion_hourly_to_salary', 'site_to_site_transfer_salary'].includes(scenario);
-    if (isSalaried) { lines.push('The following terms and conditions of this offer are set out below:'); lines.push(''); }
+    if (isSalaried) {
+      headerLines.push('The following terms and conditions of this offer are set out below:', '');
+    }
 
+    // ── Build clause paragraphs (numbered, with segment data for bold) ──────
+    const paragraphs: Array<{ segments: Array<{ kind: string; value?: string; token?: string }> }> = [];
     clauses
       .filter(c => c.role === 'CLAUSE')
       .sort((a, b) => a.sort_order - b.sort_order)
       .forEach(c => {
         if (!shouldExport(c)) return;
-        lines.push(renderToString(c.tokenized_text, tokenMap));
-        lines.push('');
+        const segs = renderSegments(c.tokenized_text, tokenMap);
+        paragraphs.push({ segments: segs });
       });
 
+    // ── Build footer lines ─────────────────────────────────────────────────
+    const footerLines: string[] = [];
     const closingPara = clauses.find(c => c.role === 'CLOSING_PARAGRAPH');
-    if (closingPara) lines.push(renderToString(closingPara.tokenized_text, tokenMap), '');
-
+    if (closingPara) footerLines.push(renderToString(closingPara.tokenized_text, tokenMap), '');
     const closingContact = clauses.find(c => c.role === 'CLOSING_CONTACT');
-    if (closingContact) lines.push(renderToString(closingContact.tokenized_text, tokenMap), '');
+    if (closingContact) footerLines.push(renderToString(closingContact.tokenized_text, tokenMap), '');
+    footerLines.push('Sincerely,', '');
+    footerLines.push(formData.company_representative_name || 'Gina Myers');
+    footerLines.push(formData.company_representative_title || 'President & General Manager');
 
-    lines.push('Sincerely,');
-    lines.push('');
-    lines.push(formData.company_representative_name || 'Gina Myers');
-    lines.push(formData.company_representative_title || 'President & General Manager');
+    // ── Try .docx export via server ────────────────────────────────────────
+    try {
+      const response = await fetch(`${apiBase()}/export/docx`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ header: { lines: headerLines }, paragraphs, footer: { lines: footerLines } }),
+      });
 
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Offer_Letter_${safeName}.docx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast({ title: 'Letter Exported', description: 'Offer letter downloaded as Word document.' });
+        return;
+      }
+
+      const errData = await response.json().catch(() => ({ error: 'Export failed.' }));
+      if (response.status === 404) {
+        // No letterhead — fall back to HTML download
+        toast({ title: 'No Letterhead', description: errData.error, variant: 'destructive' });
+      } else {
+        toast({ title: 'Export Failed', description: errData.error ?? 'An error occurred.', variant: 'destructive' });
+        return;
+      }
+    } catch {
+      // Network error — fall back to HTML
+    }
+
+    // ── Fallback: download as HTML with <p> / <b> formatting ──────────────
+    const htmlParts: string[] = ['<!DOCTYPE html><html><head><meta charset="UTF-8"><style>',
+      'body{font-family:Georgia,serif;max-width:800px;margin:40px auto;line-height:1.6;color:#1a1a1a}',
+      'p{margin:0 0 12px}b{font-weight:bold}',
+      '</style></head><body>'];
+
+    for (const line of [...headerLines]) {
+      htmlParts.push(line ? `<p>${line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>` : '<p>&nbsp;</p>');
+    }
+    paragraphs.forEach((para, idx) => {
+      const content = para.segments.map(s => {
+        const v = (s.value ?? s.token ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return s.kind === 'filled' ? `<b>${v}</b>` : v;
+      }).join('');
+      htmlParts.push(`<p>${idx + 1}. ${content}</p>`);
+    });
+    for (const line of footerLines) {
+      htmlParts.push(line ? `<p>${line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>` : '<p>&nbsp;</p>');
+    }
+    htmlParts.push('</body></html>');
+
+    const blob = new Blob([htmlParts.join('')], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const safeName = (candidateName).replace(/[^a-zA-Z0-9]/g, '_');
-    a.download = `Offer_Letter_${safeName}.txt`;
+    a.download = `Offer_Letter_${safeName}.html`;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: 'Letter Exported', description: 'Plaintext offer letter downloaded.' });
+    toast({ title: 'Letter Exported', description: 'Offer letter downloaded as HTML (no letterhead configured).' });
   };
 
   if (state.step === 'upload') {
@@ -573,8 +654,17 @@ function OfferEditor() {
                 <Accordion.Content className="p-4 pt-0 border-t bg-slate-50/50">
                   <div className="grid grid-cols-1 gap-4 mt-4">
                     <FieldWrapper id="pto_confirmed_value" label="Annual PTO (Hours)">
-                      <div className="flex gap-4">
-                        <Input type="number" value={state.formData.pto_confirmed_value || ''} onChange={e => setField('pto_confirmed_value', parseFloat(e.target.value))} className="w-32" />
+                      <div className="flex gap-4 items-center">
+                        <select
+                          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary w-40"
+                          value={state.formData.pto_confirmed_value ?? ''}
+                          onChange={e => setField('pto_confirmed_value', e.target.value ? parseInt(e.target.value) : undefined)}
+                        >
+                          <option value="">— Select —</option>
+                          {ptoOptions.map(o => (
+                            <option key={o.id} value={o.value}>{o.value} hrs</option>
+                          ))}
+                        </select>
                         <Button variant={state.ptoConfirmed ? "secondary" : "default"} onClick={() => dispatch({ type: 'CONFIRM_PTO' })}>
                           {state.ptoConfirmed ? <><CheckCircle className="w-4 h-4 mr-2 text-green-600"/> Confirmed</> : "Confirm PTO"}
                         </Button>

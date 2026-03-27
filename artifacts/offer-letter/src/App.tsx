@@ -15,6 +15,8 @@ import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminIssues from "@/pages/admin/AdminIssues";
 import AdminIssueDetail from "@/pages/admin/AdminIssueDetail";
 import IssuePreview from "@/pages/admin/IssuePreview";
+import AdminPto from "@/pages/admin/AdminPto";
+import AdminLetterhead from "@/pages/admin/AdminLetterhead";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
@@ -93,6 +95,12 @@ function Router() {
       {/* Protected: system_admin */}
       <Route path="/admin/users">
         <RequireAuth minRole="system_admin"><AdminUsers /></RequireAuth>
+      </Route>
+      <Route path="/admin/pto">
+        <RequireAuth minRole="system_admin"><AdminPto /></RequireAuth>
+      </Route>
+      <Route path="/admin/letterhead">
+        <RequireAuth minRole="system_admin"><AdminLetterhead /></RequireAuth>
       </Route>
       <Route path="/admin/security-spec">
         <RequireAuth minRole="system_admin"><AdminSecuritySpec /></RequireAuth>

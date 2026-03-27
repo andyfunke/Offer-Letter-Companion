@@ -49,6 +49,7 @@ const initialState: OfferState = {
     background_check_required: true,
     letter_date: todayISO(),
     acceptance_deadline: plusDaysISO(8),
+    stip_effective_year: new Date().getFullYear(),
   },
   fieldStates: {},
   unresolvedDecisions: 0,

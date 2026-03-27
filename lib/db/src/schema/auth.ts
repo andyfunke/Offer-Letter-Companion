@@ -13,6 +13,7 @@ export const usersTable = pgTable("users", {
   isBootstrapAdmin: boolean("is_bootstrap_admin").notNull().default(false),
   mustResetPassword: boolean("must_reset_password").notNull().default(false),
   preferences: jsonb("preferences").default({}).$type<{ lastGoverningState?: string }>(),
+  site: text("site"),  // site ID from kinross-sites (e.g. 'echo_bay')
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -89,3 +90,21 @@ export const adminNotesTable = pgTable("admin_notes", {
 });
 
 export type AdminNote = typeof adminNotesTable.$inferSelect;
+
+// ── PTO Options (admin-managed list of valid PTO hours values) ─────────────
+export const ptoOptionsTable = pgTable("pto_options", {
+  id: serial("id").primaryKey(),
+  value: integer("value").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type PtoOption = typeof ptoOptionsTable.$inferSelect;
+
+// ── App Settings (key/value store for letterhead template etc.) ────────────
+export const appSettingsTable = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  valueText: text("value_text"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type AppSetting = typeof appSettingsTable.$inferSelect;

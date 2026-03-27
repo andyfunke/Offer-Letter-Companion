@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserPlus, Check, X, Key, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+import { KINROSS_SITES } from '@/data/kinross-sites';
 
 function apiBase() {
   const base = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
@@ -19,7 +20,7 @@ const ROLE_COLORS: Record<string, string> = {
   system_admin: 'bg-purple-100 text-purple-700',
 };
 
-const EMPTY_FORM = { username: '', email: '', password: '', role: 'recruiter' };
+const EMPTY_FORM = { username: '', email: '', password: '', role: 'recruiter', site: '' };
 
 export default function AdminUsers() {
   const { user: me } = useAuth();
@@ -84,6 +85,16 @@ export default function AdminUsers() {
         method: 'PUT', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email || null }),
+      }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
+  });
+
+  const siteMutation = useMutation({
+    mutationFn: ({ id, site }: { id: number; site: string | null }) =>
+      fetch(`${apiBase()}/admin/users/${id}`, {
+        method: 'PUT', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site: site || null }),
       }).then(r => r.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] }),
   });
@@ -154,6 +165,13 @@ export default function AdminUsers() {
                     <option value="system_admin">System Admin</option>
                   </select>
                 </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block">Assigned Site <span className="text-muted-foreground font-normal">(optional)</span></label>
+                  <select className="w-full border rounded-md px-3 py-2 text-sm bg-background" value={form.site} onChange={e => setForm(f => ({ ...f, site: e.target.value }))}>
+                    <option value="">— No site assigned —</option>
+                    {KINROSS_SITES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                </div>
               </div>
               {formError && <p className="text-xs text-destructive mb-2">{formError}</p>}
               <div className="flex gap-2">
@@ -204,6 +222,15 @@ export default function AdminUsers() {
                       <option value="recruiter">Recruiter</option>
                       <option value="hr_admin">HR Admin</option>
                       <option value="system_admin">System Admin</option>
+                    </select>
+
+                    <select
+                      className="text-xs border rounded px-2 py-1 bg-background"
+                      value={u.site ?? ''}
+                      onChange={e => siteMutation.mutate({ id: u.id, site: e.target.value || null })}
+                    >
+                      <option value="">— No site —</option>
+                      {KINROSS_SITES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                     </select>
 
                     {resetTarget === u.id ? (

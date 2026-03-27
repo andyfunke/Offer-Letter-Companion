@@ -1,6 +1,6 @@
 import { useAuth } from '@/hooks/use-auth';
 import { AdminLayout } from './AdminLayout';
-import { Shield, Users, AlertCircle, CheckCircle } from 'lucide-react';
+import { Shield, Users, AlertCircle, CheckCircle, Calendar, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'wouter';
 
@@ -21,6 +21,20 @@ export default function AdminDashboard() {
       title: 'Issue Reports',
       desc: 'Review telemetry issues reported by HR staff.',
       color: 'text-amber-600 bg-amber-50',
+    },
+    hasRole('system_admin') && {
+      href: '/admin/pto',
+      icon: Calendar,
+      title: 'PTO Options',
+      desc: 'Manage the list of available annual PTO hours values for the offer form.',
+      color: 'text-violet-600 bg-violet-50',
+    },
+    hasRole('system_admin') && {
+      href: '/admin/letterhead',
+      icon: FileText,
+      title: 'Letterhead Template',
+      desc: 'Upload or replace the .docx letterhead used for exported offer letters.',
+      color: 'text-teal-600 bg-teal-50',
     },
     hasRole('system_admin') && {
       href: '/admin/security-spec',

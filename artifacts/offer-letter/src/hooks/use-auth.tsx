@@ -5,6 +5,7 @@ export interface AuthUser {
   username: string;
   role: 'recruiter' | 'hr_admin' | 'system_admin';
   email: string | null;
+  site: string | null;
   mustResetPassword: boolean;
 }
 
