@@ -1,4 +1,4 @@
-import React, { useState, useCallback, DragEvent, ChangeEvent } from 'react';
+import React, { useState, useCallback, useRef, DragEvent, ChangeEvent } from 'react';
 import { useOfferStore } from '@/hooks/use-offer-store';
 import { UploadCloud, FileText, Loader2, MapPin, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -130,6 +130,7 @@ export function ResumeUpload() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [parseStepIdx, setParseStepIdx] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const processFile = useCallback(async (file: File) => {
     setError(null);
@@ -274,9 +275,21 @@ export function ResumeUpload() {
           </p>
         </CardHeader>
         <CardContent className="p-6 space-y-4">
-          {/* Label wraps the real input — most reliable approach across browsers & iframes */}
-          <label
-            htmlFor="resume-upload-input"
+          {/* Hidden file input — triggered explicitly via ref.click() for iframe compatibility */}
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".pdf,.docx,.doc,.txt"
+            className="sr-only"
+            onChange={handleFileChange}
+            disabled={isProcessing}
+            tabIndex={-1}
+          />
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => { if (!isProcessing) inputRef.current?.click(); }}
+            onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isProcessing) inputRef.current?.click(); }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -289,14 +302,6 @@ export function ResumeUpload() {
                 : 'border-primary/30 bg-accent/5 hover:bg-accent/10 hover:border-primary/60 cursor-pointer',
             ].join(' ')}
           >
-            <input
-              id="resume-upload-input"
-              type="file"
-              accept=".pdf,.docx,.doc,.txt"
-              className="sr-only"
-              onChange={handleFileChange}
-              disabled={isProcessing}
-            />
 
             {isProcessing ? (
               <div className="flex flex-col items-center text-primary space-y-4">
@@ -319,7 +324,7 @@ export function ResumeUpload() {
                 <p className="text-xs text-muted-foreground">PDF or DOCX up to 10 MB</p>
               </>
             )}
-          </label>
+          </div>
 
           {error && (
             <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
