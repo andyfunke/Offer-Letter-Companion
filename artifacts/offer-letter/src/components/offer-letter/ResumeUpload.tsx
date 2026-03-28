@@ -64,7 +64,7 @@ function parseResumeText(text: string) {
   let fullName = '';
 
   // Patterns that indicate the line is NOT a name
-  const NOT_NAME = /\d|@|http|\.com|Street|Ave|Blvd|Dr\.|Suite|Floor|P\.?O\.\s*Box|Apt\.?|Unit\s|\bWA\b|\bOR\b|\bCA\b|\bBC\b|\bAB\b|\bON\b|\bNY\b|\bTX\b|\bFL\b|\bCO\b|\bID\b|\bMT\b|\bUT\b|\bNV\b|\bAZ\b|\bNM\b|\bState\b|\bCounty\b|\bCity\b|LinkedIn|GitHub|Portfolio|Summary|Objective|Experience|Education|Skills|References|Profile|Resume|Curriculum/i;
+  const NOT_NAME = /\d|@|http|\.com|Street|Ave|Blvd|Dr\.|Suite|Floor|P\.?O\.\s*Box|Apt\.?|Unit\s|\bWA\b|\bOR\b|\bCA\b|\bBC\b|\bAB\b|\bON\b|\bNY\b|\bTX\b|\bFL\b|\bCO\b|\bID\b|\bMT\b|\bUT\b|\bNV\b|\bAZ\b|\bNM\b|\bState\b|\bCounty\b|\bCity\b|LinkedIn|GitHub|Portfolio|Summary|Objective|Experience|Education|Skills|References|Profile|Resume|Curriculum|Confidential|Private|Dear\b|Offer|Salary|Position|Letter|Sincerely|Regards|Inc\.|LLC|Corp|Corporation|Gold|Mining|Minerals/i;
 
   for (const line of lines.slice(0, 12)) {
     const words = line.split(/\s+/);
@@ -84,8 +84,9 @@ function parseResumeText(text: string) {
   // NOTE: use [a-zA-Z ]+ (space only, NOT \s) so the match cannot cross a line break
   // and accidentally absorb the candidate's name from the previous line.
   const locationPatterns = [
-    /\b([A-Z][a-zA-Z ]+),[ \t]*(BC|AB|ON|QC|SK|MB|NS|NB|PE|NL|YT|NT|NU)\b/,   // Canadian province
-    /\b([A-Z][a-zA-Z ]+),[ \t]*(WA|OR|CA|AZ|TX|NY|FL|CO|NV|ID|MT|UT|GA|NC|VA|PA|OH|MI|IL|MN|MO|TN|AL|LA|AR|KY|IN|WI|IA|OK|KS|NE|SD|ND|WY|NM|AK|HI|DE|MD|DC|CT|RI|VT|NH|ME|WV|MS)\b/i,  // US state abbrev
+    // City name: 1-3 words, each word starts with uppercase — prevents absorbing full sentences
+    /\b([A-Z][a-zA-Z]+(?:[ \t][A-Z][a-zA-Z]+){0,2}),[ \t]*(BC|AB|ON|QC|SK|MB|NS|NB|PE|NL|YT|NT|NU)\b/,   // Canadian province
+    /\b([A-Z][a-zA-Z]+(?:[ \t][A-Z][a-zA-Z]+){0,2}),[ \t]*(WA|OR|CA|AZ|TX|NY|FL|CO|NV|ID|MT|UT|GA|NC|VA|PA|OH|MI|IL|MN|MO|TN|AL|LA|AR|KY|IN|WI|IA|OK|KS|NE|SD|ND|WY|NM|AK|HI|DE|MD|DC|CT|RI|VT|NH|ME|WV|MS)\b/,  // US state abbrev
   ];
   let location = '';
   let isCanada = false;
