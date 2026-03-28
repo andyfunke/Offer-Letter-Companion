@@ -176,6 +176,44 @@ function OfferEditor() {
     }
   }
 
+  // Token → field ID mapping for cases where token name differs from FieldWrapper id
+  const TOKEN_FIELD_MAP: Record<string, string> = {
+    annual_salary: 'annual_salary_input',
+    hourly_rate: 'hourly_rate_input',
+    salary: 'annual_salary_input',
+    candidate_name: 'candidate_full_name',
+    site_name: 'selected_site_id',
+    subsidiary_name: 'site_subsidiary_name',
+    location: 'site_location',
+    state: 'governing_state',
+    hr_contact: 'hr_contact_name',
+    acceptance_date: 'acceptance_deadline',
+    pto_hours: 'pto_confirmed_value',
+  };
+
+  function handleTokenClick(token: string) {
+    const fieldId = TOKEN_FIELD_MAP[token] ?? token;
+    const el = document.getElementById(`field-${fieldId}`);
+    if (!el) {
+      // Try the raw id (input elements)
+      const raw = document.getElementById(fieldId);
+      raw?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    // Scroll into view
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Flash red highlight
+    el.style.transition = 'outline 0s, background-color 0.15s ease';
+    el.style.outline = '2.5px solid rgb(239, 68, 68)';
+    el.style.backgroundColor = 'rgba(239, 68, 68, 0.07)';
+    el.style.borderRadius = '12px';
+    setTimeout(() => {
+      el.style.transition = 'outline 0.6s ease, background-color 0.6s ease';
+      el.style.outline = '';
+      el.style.backgroundColor = '';
+    }, 1800);
+  }
+
   const handleCopyPayload = () => {
     const payload = JSON.stringify(state, null, 2);
     navigator.clipboard.writeText(payload);
@@ -893,7 +931,7 @@ function OfferEditor() {
           <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Live Document Preview</h2>
         </div>
         <div className="flex-1 overflow-hidden">
-          <LetterPreview />
+          <LetterPreview onTokenClick={handleTokenClick} />
         </div>
       </div>
 

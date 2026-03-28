@@ -29,12 +29,15 @@ export function FieldWrapper({ id, label, children, optional = false, helpText }
   };
 
   return (
-    <div className={cn(
-      "group relative flex flex-col space-y-2 p-4 rounded-xl border transition-all duration-300",
-      isRemoved ? "bg-muted/50 border-dashed border-border" : 
-      isInherited ? "bg-accent/10 border-primary/20 shadow-sm" : 
-      "bg-card border-border shadow-sm hover:border-primary/30"
-    )}>
+    <div
+      id={`field-${id}`}
+      className={cn(
+        "group relative flex flex-col space-y-2 p-4 rounded-xl border transition-all duration-300",
+        isRemoved ? "bg-muted/50 border-dashed border-border" : 
+        isInherited ? "bg-accent/10 border-primary/20 shadow-sm" : 
+        "bg-card border-border shadow-sm hover:border-primary/30"
+      )}
+    >
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">

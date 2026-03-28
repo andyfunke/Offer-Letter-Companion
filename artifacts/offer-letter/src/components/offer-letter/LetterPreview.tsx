@@ -6,21 +6,23 @@ import { buildTokenMap, renderSegments, RenderedSegment } from '@/lib/render-cla
 import { apiBase } from '@/hooks/use-auth';
 
 // ─── Segment renderer ──────────────────────────────────────
-function RenderSegments({ segments }: { segments: RenderedSegment[] }) {
+function RenderSegments({ segments, onTokenClick }: { segments: RenderedSegment[]; onTokenClick?: (token: string) => void }) {
   return (
     <>
       {segments.map((seg, i) => {
         if (seg.kind === 'text') return <React.Fragment key={i}>{seg.value}</React.Fragment>;
         if (seg.kind === 'filled') return <strong key={i}>{seg.value}</strong>;
-        // unfilled token — render as highlighted placeholder
+        // unfilled token — red clickable button
         return (
-          <span
+          <button
             key={i}
-            className="bg-amber-100 text-amber-800 rounded px-0.5 font-mono text-[0.72em] border border-amber-300"
-            title="Token not yet filled"
+            type="button"
+            onClick={() => onTokenClick?.(seg.token ?? '')}
+            className="bg-red-100 text-red-700 rounded px-0.5 font-mono text-[0.72em] border border-red-400 cursor-pointer hover:bg-red-200 hover:border-red-500 transition-colors underline decoration-dotted"
+            title={`Click to go to: ${seg.token}`}
           >
             [{seg.token}]
-          </span>
+          </button>
         );
       })}
     </>
@@ -28,11 +30,11 @@ function RenderSegments({ segments }: { segments: RenderedSegment[] }) {
 }
 
 // ─── Single clause block ────────────────────────────────────
-function ClauseBlock({ clause, tokenMap }: { clause: ClauseRecord; tokenMap: Record<string, string> }) {
+function ClauseBlock({ clause, tokenMap, onTokenClick }: { clause: ClauseRecord; tokenMap: Record<string, string>; onTokenClick?: (token: string) => void }) {
   const segments = renderSegments(clause.tokenized_text, tokenMap);
   return (
     <p className="mb-4 leading-relaxed">
-      <RenderSegments segments={segments} />
+      <RenderSegments segments={segments} onTokenClick={onTokenClick} />
     </p>
   );
 }
@@ -88,7 +90,7 @@ function SignatureBlock({ candidateName, formData }: { candidateName: string; fo
 }
 
 // ─── Main component ─────────────────────────────────────────
-export function LetterPreview() {
+export function LetterPreview({ onTokenClick }: { onTokenClick?: (token: string) => void } = {}) {
   const { state } = useOfferStore();
   const { formData, fieldStates } = state;
 
@@ -205,12 +207,12 @@ export function LetterPreview() {
 
       {/* Opening / Header clause */}
       {headerClause && (
-        <ClauseBlock clause={headerClause} tokenMap={tokenMap} />
+        <ClauseBlock clause={headerClause} tokenMap={tokenMap} onTokenClick={onTokenClick} />
       )}
 
       {/* Immigration paragraph (optional) */}
       {immigrationClause && shouldRender(immigrationClause) && (
-        <ClauseBlock clause={immigrationClause} tokenMap={tokenMap} />
+        <ClauseBlock clause={immigrationClause} tokenMap={tokenMap} onTokenClick={onTokenClick} />
       )}
 
       {/* Salaried intro line */}
@@ -219,17 +221,17 @@ export function LetterPreview() {
       {/* Body clauses */}
       {bodyClausesSorted.map(clause => {
         if (!shouldRender(clause)) return null;
-        return <ClauseBlock key={clause.clause_id} clause={clause} tokenMap={tokenMap} />;
+        return <ClauseBlock key={clause.clause_id} clause={clause} tokenMap={tokenMap} onTokenClick={onTokenClick} />;
       })}
 
       {/* Closing paragraph */}
       {closingParaClause && (
-        <ClauseBlock clause={closingParaClause} tokenMap={tokenMap} />
+        <ClauseBlock clause={closingParaClause} tokenMap={tokenMap} onTokenClick={onTokenClick} />
       )}
 
       {/* Closing contact */}
       {closingContactClause && (
-        <ClauseBlock clause={closingContactClause} tokenMap={tokenMap} />
+        <ClauseBlock clause={closingContactClause} tokenMap={tokenMap} onTokenClick={onTokenClick} />
       )}
 
       {/* Signature block */}
