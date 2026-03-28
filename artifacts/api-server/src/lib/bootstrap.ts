@@ -1,4 +1,4 @@
-import { db, usersTable, ptoOptionsTable } from "@workspace/db";
+import { db, usersTable, ptoOptionsTable, hrProfilesTable } from "@workspace/db";
 import { eq, count, sql, inArray } from "drizzle-orm";
 import { hashPassword } from "./passwords";
 import { logger } from "./logger";
@@ -10,6 +10,30 @@ const SEEDED_USERS = [
     password: "wemineforgold",
     role: "admin" as const,
     site: "echo_bay",
+  },
+  {
+    username: "ReneeKarikas",
+    email: "renee.karikas@kinross.com",
+    password: "KinrossHR2026!",
+    role: "admin" as const,
+    site: "kettle_river",
+  },
+];
+
+const SEEDED_HR_PROFILES = [
+  {
+    firstName: "Renee",
+    lastName: "Karikas",
+    email: "renee.karikas@kinross.com",
+    site: "kettle_river",
+    isDefault: true,
+  },
+  {
+    firstName: "Gina",
+    lastName: "Myers",
+    email: "gina.myers@kinross.com",
+    site: null,
+    isDefault: false,
   },
 ];
 
@@ -49,6 +73,29 @@ export async function ensurePtoOptions(): Promise<void> {
   if (missing.length > 0) {
     await db.insert(ptoOptionsTable).values(missing.map(value => ({ value })));
     logger.info({ missing }, "Seeded missing PTO options.");
+  }
+}
+
+export async function ensureSeededHrProfiles(): Promise<void> {
+  for (const p of SEEDED_HR_PROFILES) {
+    const [existing] = await db
+      .select({ id: hrProfilesTable.id })
+      .from(hrProfilesTable)
+      .where(
+        sql`lower(${hrProfilesTable.firstName}) = ${p.firstName.toLowerCase()} AND lower(${hrProfilesTable.lastName}) = ${p.lastName.toLowerCase()}`
+      )
+      .limit(1);
+    if (!existing) {
+      await db.insert(hrProfilesTable).values({
+        firstName: p.firstName,
+        lastName: p.lastName,
+        email: p.email,
+        site: p.site,
+        isActive: true,
+        isDefault: p.isDefault,
+      });
+      logger.info({ name: `${p.firstName} ${p.lastName}` }, "Seeded HR profile.");
+    }
   }
 }
 

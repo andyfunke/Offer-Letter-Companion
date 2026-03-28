@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { bootstrapAdmin, ensureSeededUsers, ensurePtoOptions, migrateRoles } from "./lib/bootstrap";
+import { bootstrapAdmin, ensureSeededUsers, ensurePtoOptions, ensureSeededHrProfiles, migrateRoles } from "./lib/bootstrap";
 import { purgeExpiredSessions } from "./lib/session";
 import { db, offerDraftsTable } from "@workspace/db";
 import { lt } from "drizzle-orm";
@@ -43,6 +43,13 @@ try {
   await ensurePtoOptions();
 } catch (err) {
   logger.warn({ err }, "ensurePtoOptions failed — continuing anyway.");
+}
+
+// ── Ensure default HR profiles exist ──────────────────────────────────────
+try {
+  await ensureSeededHrProfiles();
+} catch (err) {
+  logger.warn({ err }, "ensureSeededHrProfiles failed — continuing anyway.");
 }
 
 // ── Purge expired sessions once on startup, then every hour ───────────────
