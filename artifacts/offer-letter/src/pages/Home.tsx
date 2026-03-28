@@ -333,8 +333,8 @@ function OfferEditor() {
     const signatureBlock = {
       hrName: 'Renee Karikas',
       hrTitle: 'Sr. Human Resources Generalist',
-      mgmtName: formData.company_representative_name || 'Andy Funke',
-      mgmtTitle: formData.company_representative_title || 'President & General Manager',
+      mgmtName: 'Gina Myers',
+      mgmtTitle: 'President & General Manager',
       candidateName,
       year: new Date().getFullYear(),
     };

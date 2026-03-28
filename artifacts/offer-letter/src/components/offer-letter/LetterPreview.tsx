@@ -70,8 +70,8 @@ function SignatureBlock({ candidateName, formData }: { candidateName: string; fo
         </div>
         <div>
           <div className="h-16" />
-          <p className="font-bold">{formData.company_representative_name || 'Andy Funke'}</p>
-          <p className="text-slate-500">{formData.company_representative_title || 'President & General Manager'}</p>
+          <p className="font-bold">Gina Myers</p>
+          <p className="text-slate-500">President & General Manager</p>
         </div>
       </div>
 
