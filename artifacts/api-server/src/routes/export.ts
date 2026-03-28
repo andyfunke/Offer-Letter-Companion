@@ -32,6 +32,10 @@ const router = Router();
 
 const FONT_SZ = 20; // 10pt in half-points
 
+// Half-height line spacing: 120 twips = ½ of single-spacing (240).
+// w:before / w:after = 0 removes the default paragraph gap Word adds.
+const SPACING = `<w:spacing w:line="120" w:lineRule="auto" w:before="0" w:after="0"/>`;
+
 function xmlEscape(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -69,7 +73,7 @@ function segmentsToRuns(segments: Segment[]): string {
 
 /** Wrap runs in a paragraph */
 function makeParagraph(inner: string): string {
-  return `<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr>${inner}</w:p>`;
+  return `<w:p><w:pPr><w:pStyle w:val="Normal"/>${SPACING}</w:pPr>${inner}</w:p>`;
 }
 
 /** Plain text paragraph. If text contains \n, inserts <w:br/> instead of splitting paragraphs. */
@@ -86,12 +90,12 @@ function textParagraph(text: string, bold = false): string {
 
 /** Empty paragraph / line break */
 function emptyParagraph(): string {
-  return `<w:p/>`;
+  return `<w:p><w:pPr>${SPACING}</w:pPr></w:p>`;
 }
 
 /** Paragraph with explicit spacing override (for pPr) */
 function spacedParagraph(inner: string, spaceBefore = 0, spaceAfter = 0): string {
-  return `<w:p><w:pPr><w:pStyle w:val="Normal"/><w:spacing w:before="${spaceBefore}" w:after="${spaceAfter}"/></w:pPr>${inner}</w:p>`;
+  return `<w:p><w:pPr><w:pStyle w:val="Normal"/><w:spacing w:line="120" w:lineRule="auto" w:before="${spaceBefore}" w:after="${spaceAfter}"/></w:pPr>${inner}</w:p>`;
 }
 
 // ── Two-column signature table ─────────────────────────────────────────────
