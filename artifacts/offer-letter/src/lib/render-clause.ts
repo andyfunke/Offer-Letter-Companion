@@ -109,7 +109,12 @@ export function renderSegments(
   tokenizedText: string,
   tokenMap: Record<string, string>,
 ): RenderedSegment[] {
-  const parts = tokenizedText.split(/(\{\{[A-Z_]+\}\})/g);
+  // Ensure a space before {{ when preceded by a non-space character,
+  // and after }} when followed by a word character (not punctuation).
+  const normalized = tokenizedText
+    .replace(/([^\s])\{\{/g, '$1 {{')
+    .replace(/\}\}([^\s,;:.!?)\]])/g, '}} $1');
+  const parts = normalized.split(/(\{\{[A-Z_]+\}\})/g);
   const segments: RenderedSegment[] = [];
 
   for (const part of parts) {
@@ -134,5 +139,8 @@ export function renderToString(
   tokenizedText: string,
   tokenMap: Record<string, string>,
 ): string {
-  return tokenizedText.replace(/\{\{([A-Z_]+)\}\}/g, (_, token) => tokenMap[token] ?? `[${token}]`);
+  const normalized = tokenizedText
+    .replace(/([^\s])\{\{/g, '$1 {{')
+    .replace(/\}\}([^\s,;:.!?)\]])/g, '}} $1');
+  return normalized.replace(/\{\{([A-Z_]+)\}\}/g, (_, token) => tokenMap[token] ?? `[${token}]`);
 }
