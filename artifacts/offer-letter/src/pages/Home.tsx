@@ -585,9 +585,9 @@ function OfferEditor() {
                 <LogOut className="w-4 h-4 mr-2" /> Sign Out
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={handleCopyPayload} title="Copy Claude Payload">
+            {/* <Button variant="ghost" size="sm" onClick={handleCopyPayload} title="Copy Claude Payload">
               <FileJson className="w-4 h-4 mr-2" /> Payload
-            </Button>
+            </Button> */}
             <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={createOfferMutation.isPending}>
               <Save className="w-4 h-4 mr-2" /> Save Draft
             </Button>
