@@ -26,7 +26,7 @@ type OfferAction =
   | { type: 'SET_FIELD_VALUE'; field: string; value: any }
   | { type: 'SET_FIELD_STATE'; field: string; state: FieldState }
   | { type: 'LOAD_TEMPLATE'; payload: TemplateProfile }
-  | { type: 'CONFIRM_NORMALIZATION' }
+  | { type: 'CONFIRM_NORMALIZATION'; normalizedAnnual: number; normalizedBiweekly: number }
   | { type: 'CONFIRM_PTO' }
   | { type: 'RESET' };
 
@@ -94,6 +94,7 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
       newState.formData = { ...state.formData, [action.field]: action.value };
       if (action.field === 'annual_salary_input' || action.field === 'pay_basis') {
         newState.normalizationConfirmed = false;
+        newState.formData = { ...newState.formData, normalized_annual_salary: undefined, normalized_biweekly_pay: undefined };
       }
       if (action.field === 'pto_confirmed_value') {
         newState.ptoConfirmed = false;
@@ -121,6 +122,11 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
       break;
     case 'CONFIRM_NORMALIZATION':
       newState.normalizationConfirmed = true;
+      newState.formData = {
+        ...newState.formData,
+        normalized_annual_salary: action.normalizedAnnual,
+        normalized_biweekly_pay: action.normalizedBiweekly,
+      };
       break;
     case 'CONFIRM_PTO':
       newState.ptoConfirmed = true;

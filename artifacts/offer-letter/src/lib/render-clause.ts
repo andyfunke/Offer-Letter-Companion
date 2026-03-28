@@ -23,8 +23,11 @@ function fmtCurrency(val: number | string | undefined): string {
 
 /** Build the full token→value map from formData */
 export function buildTokenMap(formData: Record<string, any>): Record<string, string> {
-  const annual = parseFloat(formData.annual_salary_input) || 0;
-  const biweekly = annual > 0 ? annual / 26 : 0;
+  // Use confirmed normalized values when available (set after user clicks Confirm in normalization panel)
+  const annual = parseFloat(formData.normalized_annual_salary ?? formData.annual_salary_input) || 0;
+  const biweekly = formData.normalized_biweekly_pay
+    ? parseFloat(formData.normalized_biweekly_pay)
+    : annual > 0 ? annual / 26 : 0;
   const hourly = parseFloat(formData.hourly_rate_input) || 0;
 
   return {
