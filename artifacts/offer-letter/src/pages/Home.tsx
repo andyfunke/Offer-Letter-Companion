@@ -43,8 +43,8 @@ function OfferEditor() {
   // Load HR contacts list for dropdown; auto-select default when list arrives
   useEffect(() => {
     if (!user) return;
-    fetch(`${apiBase()}/auth/hr-contacts`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`hr-contacts: ${r.status}`)))
+    fetch(`${apiBase()}/auth/hr-contacts`, { credentials: 'include', cache: 'no-store' })
+      .then(r => (r.ok || r.status === 304) ? r.json() : Promise.reject(new Error(`hr-contacts: ${r.status}`)))
       .then(data => {
         const contacts: HrContact[] = data.contacts ?? [];
         setHrContacts(contacts);
@@ -62,8 +62,8 @@ function OfferEditor() {
   // Load PTO options
   useEffect(() => {
     if (!user) return;
-    fetch(`${apiBase()}/admin/pto-options`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`pto-options: ${r.status}`)))
+    fetch(`${apiBase()}/admin/pto-options`, { credentials: 'include', cache: 'no-store' })
+      .then(r => (r.ok || r.status === 304) ? r.json() : Promise.reject(new Error(`pto-options: ${r.status}`)))
       .then(data => setPtoOptions(Array.isArray(data) ? data : []))
       .catch(err => console.error('[PTO options]', err));
   }, [user?.id]);
