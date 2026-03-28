@@ -36,6 +36,13 @@ export const KINROSS_SITES: KinrossSite[] = [
     governingState: 'NV',
   },
   {
+    id: 'kettle_river',
+    label: 'Kettle River',
+    subsidiaryName: 'Echo Bay Minerals, Inc.',
+    location: 'Republic, WA',
+    governingState: 'WA',
+  },
+  {
     id: 'echo_bay',
     label: 'Curlew Basin',
     subsidiaryName: 'Echo Bay Minerals, Inc.',
