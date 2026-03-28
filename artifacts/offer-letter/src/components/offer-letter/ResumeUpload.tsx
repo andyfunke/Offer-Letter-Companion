@@ -64,7 +64,7 @@ function parseResumeText(text: string) {
   let fullName = '';
 
   // Patterns that indicate the line is NOT a name
-  const NOT_NAME = /\d|@|http|\.com|Street|Ave|Blvd|Dr\.|Suite|Floor|P\.?O\.\s*Box|Apt\.?|Unit\s|\bWA\b|\bOR\b|\bCA\b|\bBC\b|\bAB\b|\bON\b|\bNY\b|\bTX\b|\bFL\b|\bCO\b|\bID\b|\bMT\b|\bUT\b|\bNV\b|\bAZ\b|\bNM\b|\bState\b|\bCounty\b|\bCity\b|LinkedIn|GitHub|Portfolio|Summary|Objective|Experience|Education|Skills|References|Profile|Resume|Curriculum|Confidential|Private|Dear\b|Offer|Salary|Position|Letter|Sincerely|Regards|Inc\.|LLC|Corp|Corporation|Gold|Mining|Minerals/i;
+  const NOT_NAME = /\d|@|http|\.com|Street|Ave|Blvd|Dr\.|Suite|Floor|P\.?O\.\s*Box|Apt\.?|Unit\s|\bWA\b|\bOR\b|\bCA\b|\bBC\b|\bAB\b|\bON\b|\bNY\b|\bTX\b|\bFL\b|\bCO\b|\bID\b|\bMT\b|\bUT\b|\bNV\b|\bAZ\b|\bNM\b|\bState\b|\bCounty\b|\bCity\b|LinkedIn|GitHub|Portfolio|Summary|Objective|Experience|Education|Skills|References|Profile|Resume|Curriculum|\bConfidential\b|\bPrivate\b|\bDear\b|\bSincerely\b|\bRegards\b|\bOffer\s+Letter\b/i;
 
   for (const line of lines.slice(0, 12)) {
     const words = line.split(/\s+/);
