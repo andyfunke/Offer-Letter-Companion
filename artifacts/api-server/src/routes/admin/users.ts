@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { db, usersTable, userEventsTable } from "@workspace/db";
+import { db, usersTable, userEventsTable, userInteractionsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { hashPassword } from "../../lib/passwords";
 import { requireAuth, requireRole } from "../../middleware/auth-guard";
@@ -101,11 +101,38 @@ router.get("/:id", async (req, res) => {
 // GET /api/admin/users/:id/events
 router.get("/:id/events", async (req, res) => {
   const id = parseInt(req.params.id);
-  const events = await db.select().from(userEventsTable)
-    .where(eq(userEventsTable.userId, id))
-    .orderBy(desc(userEventsTable.createdAt))
-    .limit(50);
-  res.json({ events });
+  const [adminEvents, interactions] = await Promise.all([
+    db.select().from(userEventsTable)
+      .where(eq(userEventsTable.userId, id))
+      .orderBy(desc(userEventsTable.createdAt))
+      .limit(50),
+    db.select().from(userInteractionsTable)
+      .where(eq(userInteractionsTable.userId, id))
+      .orderBy(desc(userInteractionsTable.createdAt))
+      .limit(100),
+  ]);
+
+  const merged = [
+    ...adminEvents.map(e => ({
+      id: `ae-${e.id}`,
+      kind: 'admin',
+      event: e.event,
+      detail: e.detail,
+      changedBy: e.changedBy,
+      createdAt: e.createdAt,
+    })),
+    ...interactions.map(i => ({
+      id: `ui-${i.id}`,
+      kind: 'interaction',
+      event: `${i.action}`,
+      detail: i.element,
+      changedBy: null,
+      createdAt: i.createdAt,
+    })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+   .slice(0, 100);
+
+  res.json({ events: merged });
 });
 
 // PUT /api/admin/users/:id

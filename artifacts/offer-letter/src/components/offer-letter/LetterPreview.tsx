@@ -11,7 +11,7 @@ function RenderSegments({ segments }: { segments: RenderedSegment[] }) {
     <>
       {segments.map((seg, i) => {
         if (seg.kind === 'text') return <React.Fragment key={i}>{seg.value}</React.Fragment>;
-        if (seg.kind === 'filled') return <span key={i}>{seg.value}</span>;
+        if (seg.kind === 'filled') return <strong key={i}>{seg.value}</strong>;
         // unfilled token — render as highlighted placeholder
         return (
           <span
@@ -68,7 +68,7 @@ function SignatureBlock({ candidateName, formData }: { candidateName: string; fo
         </div>
         <div>
           <div className="h-16" />
-          <p className="font-bold">{formData.company_representative_name || 'Gina Myers'}</p>
+          <p className="font-bold">{formData.company_representative_name || 'Andy Funke'}</p>
           <p className="text-slate-500">{formData.company_representative_title || 'President & General Manager'}</p>
         </div>
       </div>
@@ -191,10 +191,12 @@ export function LetterPreview() {
       <p className="mb-6">{formattedDate}</p>
 
       {/* Candidate Address Block */}
-      <div className="mb-8">
-        <p className="font-semibold">{candidateName}</p>
-        {formData.candidate_email && <p className="text-slate-500">{formData.candidate_email}</p>}
-      </div>
+      <p className="mb-8 font-semibold">
+        {candidateName}
+        {formData.candidate_email && (
+          <><br /><span className="font-normal text-slate-500">{formData.candidate_email}</span></>
+        )}
+      </p>
 
       <p className="mb-6 text-slate-500 italic">Private and Confidential</p>
 

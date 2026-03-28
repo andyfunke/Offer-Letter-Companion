@@ -235,9 +235,11 @@ function OfferEditor() {
     const safeName = candidateName.replace(/[^a-zA-Z0-9]/g, '_');
 
     // ── Build header lines ──────────────────────────────────────────────────
-    const headerLines: string[] = [letterDate, '', candidateName];
-    if (formData.candidate_email) headerLines.push(formData.candidate_email);
-    headerLines.push('', 'Private and Confidential', '');
+    // Use \n within a single entry so name+email share one paragraph (br, not p)
+    const nameBlock = formData.candidate_email
+      ? `${candidateName}\n${formData.candidate_email}`
+      : candidateName;
+    const headerLines: string[] = [letterDate, '', nameBlock, '', 'Private and Confidential', ''];
     headerLines.push(`Dear ${candidateName},`, '');
 
     const headerClause = clauses.find(c => c.role === 'HEADER_OPENING');
@@ -275,7 +277,7 @@ function OfferEditor() {
     const signatureBlock = {
       hrName: 'Renee Karikas',
       hrTitle: 'Sr. Human Resources Generalist',
-      mgmtName: formData.company_representative_name || 'Gina Myers',
+      mgmtName: formData.company_representative_name || 'Andy Funke',
       mgmtTitle: formData.company_representative_title || 'President & General Manager',
       candidateName,
       year: new Date().getFullYear(),
@@ -322,7 +324,9 @@ function OfferEditor() {
       '</style></head><body>'];
 
     for (const line of [...headerLines]) {
-      htmlParts.push(line ? `<p>${line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>` : '<p>&nbsp;</p>');
+      if (!line) { htmlParts.push('<p>&nbsp;</p>'); continue; }
+      const esc = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      htmlParts.push(`<p>${esc.replace(/\n/g, '<br>')}</p>`);
     }
     paragraphs.forEach((para, idx) => {
       const content = para.segments.map(s => {
@@ -561,7 +565,6 @@ function OfferEditor() {
                           })()}
                           onChange={e => handleHrContactChange(e.target.value)}
                         >
-                          <option value="">— Select HR contact —</option>
                           {hrContacts.map(c => (
                             <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>
                           ))}

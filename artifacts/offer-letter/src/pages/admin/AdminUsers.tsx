@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AdminLayout } from './AdminLayout';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth, apiBase } from '@/hooks/use-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,11 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserPlus, Check, X, Key, AlertTriangle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { KINROSS_SITES, siteLabel } from '@/data/kinross-sites';
-
-function apiBase() {
-  const base = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
-  return `${base}/../api`.replace('//', '/');
-}
 
 const ROLE_COLORS: Record<string, string> = {
   user: 'bg-slate-100 text-slate-700',
@@ -137,8 +132,8 @@ export default function AdminUsers() {
                 <div>
                   <label className="text-xs font-medium mb-1 block">Role</label>
                   <select className="w-full border rounded-md px-3 py-2 text-sm bg-background" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
+                    <option value="user">User — can create offer letters</option>
+                    <option value="admin">Admin — full access including settings</option>
                   </select>
                 </div>
                 <div className="col-span-2">

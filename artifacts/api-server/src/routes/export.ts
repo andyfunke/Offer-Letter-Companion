@@ -72,9 +72,16 @@ function makeParagraph(inner: string): string {
   return `<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr>${inner}</w:p>`;
 }
 
-/** Plain text paragraph (single run) */
+/** Plain text paragraph. If text contains \n, inserts <w:br/> instead of splitting paragraphs. */
 function textParagraph(text: string, bold = false): string {
-  return makeParagraph(makeRun(text, bold));
+  if (!text.includes('\n')) return makeParagraph(makeRun(text, bold));
+  const lines = text.split('\n');
+  const runs = lines.map((l, i) =>
+    i === 0
+      ? makeRun(l, bold)
+      : `<w:r>${rPr(bold)}<w:br/></w:r>${makeRun(l, bold)}`
+  ).join('');
+  return makeParagraph(runs);
 }
 
 /** Empty paragraph / line break */

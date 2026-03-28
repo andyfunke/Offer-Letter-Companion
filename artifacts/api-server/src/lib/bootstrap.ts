@@ -29,10 +29,10 @@ const SEEDED_HR_PROFILES = [
     isDefault: true,
   },
   {
-    firstName: "Gina",
-    lastName: "Myers",
-    email: "gina.myers@kinross.com",
-    site: null,
+    firstName: "Andy",
+    lastName: "Funke",
+    email: "andy.funke@kinross.com",
+    site: "echo_bay",
     isDefault: false,
   },
 ];

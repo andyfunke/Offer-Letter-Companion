@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { apiBase } from '@/hooks/use-auth';
+import { KINROSS_SITES, siteLabel } from '@/data/kinross-sites';
 import { Plus, Pencil, Trash2, UserCheck, X, Check } from 'lucide-react';
 
 interface HrProfile {
@@ -165,11 +166,16 @@ export default function AdminHrProfiles() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Site (optional)</label>
-                  <Input
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm bg-background"
                     value={form.site ?? ''}
-                    onChange={e => setForm(f => ({ ...f, site: e.target.value }))}
-                    placeholder="e.g. kettle_river"
-                  />
+                    onChange={e => setForm(f => ({ ...f, site: e.target.value || '' }))}
+                  >
+                    <option value="">— No site —</option>
+                    {KINROSS_SITES.map(s => (
+                      <option key={s.id} value={s.id}>{siteLabel(s)}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-4">
@@ -212,7 +218,7 @@ export default function AdminHrProfiles() {
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5 space-x-3">
                       {p.email && <span>{p.email}</span>}
-                      {p.site && <span>Site: {p.site}</span>}
+                      {p.site && <span>{(() => { const s = KINROSS_SITES.find(x => x.id === p.site); return s ? siteLabel(s) : p.site; })()}</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
