@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useListTemplates, useCreateOffer } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Briefcase, Calendar, CheckCircle, FileCheck, FileText,
   MapPin, User, Wallet, Save, Download, FileJson, AlertCircle, Shield, LogOut,
@@ -32,6 +33,7 @@ function OfferEditor() {
   const { user, logout, hasRole, isAdmin } = useAuth();
   const { data: templatesData } = useListTemplates();
   const createOfferMutation = useCreateOffer();
+  const queryClient = useQueryClient();
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
   const [hrContacts, setHrContacts] = useState<HrContact[]>([]);
   const [ptoOptions, setPtoOptions] = useState<PtoOption[]>([]);
@@ -160,6 +162,7 @@ function OfferEditor() {
         }),
       });
       if (r.ok) {
+        await queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
         toast({ title: 'Profile Saved', description: `"${profileName.trim()}" saved as a template.` });
         log('Save Profile', 'SAVE', { profileName: profileName.trim() });
         setProfileName('');
