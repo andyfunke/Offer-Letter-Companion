@@ -55,15 +55,15 @@ export function buildTokenMap(formData: Record<string, any>): Record<string, str
     // Compensation — salaried
     ANNUAL_SALARY:          annual > 0 ? fmtCurrency(annual) : '',
     BIWEEKLY_PAY:           biweekly > 0 ? fmtCurrency(biweekly) : '',
-    NEXT_REVIEW_YEAR:       formData.next_review_year || '',
-    LTI_GRANT_VALUE:        formData.lti_grant_value || '',
+    NEXT_REVIEW_YEAR:       formData.next_review_year != null ? String(formData.next_review_year) : '',
+    LTI_GRANT_VALUE:        formData.lti_grant_value != null ? String(formData.lti_grant_value) : '',
     LTI_TRANSFER_LANGUAGE:  formData.lti_transfer_language || '',
 
     // Compensation — hourly
     HOURLY_RATE:            hourly > 0 ? fmtCurrency(hourly) : '',
 
     // Incentive
-    STIP_EFFECTIVE_YEAR:    formData.stip_effective_year || '',
+    STIP_EFFECTIVE_YEAR:    formData.stip_effective_year != null ? String(formData.stip_effective_year) : '',
     STIP_TARGET_PERCENT:    formData.stip_target_percent != null ? String(formData.stip_target_percent) : '',
 
     // Geo
@@ -79,7 +79,7 @@ export function buildTokenMap(formData: Record<string, any>): Record<string, str
 
     // Prior service / tax
     RECOGNIZED_SERVICE_DATE: formData.recognized_service_date || '',
-    TAX_YEAR:               formData.tax_year || '',
+    TAX_YEAR:               formData.tax_year != null ? String(formData.tax_year) : '',
     HOME_COUNTRY:           formData.home_country || '',
 
     // Internship
