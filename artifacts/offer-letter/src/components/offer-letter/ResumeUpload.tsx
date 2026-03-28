@@ -66,8 +66,6 @@ function parseResumeText(text: string) {
   // Patterns that indicate the line is NOT a name
   const NOT_NAME = /\d|@|http|\.com|Street|Ave|Blvd|Dr\.|Suite|Floor|P\.?O\.\s*Box|Apt\.?|Unit\s|\bWA\b|\bOR\b|\bCA\b|\bBC\b|\bAB\b|\bON\b|\bNY\b|\bTX\b|\bFL\b|\bCO\b|\bID\b|\bMT\b|\bUT\b|\bNV\b|\bAZ\b|\bNM\b|\bState\b|\bCounty\b|\bCity\b|LinkedIn|GitHub|Portfolio|Summary|Objective|Experience|Education|Skills|References|Profile|Resume|Curriculum|\bConfidential\b|\bPrivate\b|\bDear\b|\bSincerely\b|\bRegards\b|\bOffer\s+Letter\b/i;
 
-  console.log('[ResumeUpload] first 15 extracted lines:', lines.slice(0, 15));
-
   for (const line of lines.slice(0, 10)) {
     // Some resumes put name and contact info on one line separated by | or em-dash; take the first segment
     const candidate = line.split(/[|—–]/, 1)[0].trim();
@@ -81,6 +79,14 @@ function parseResumeText(text: string) {
     ) {
       fullName = candidate;
       break;
+    }
+  }
+
+  // Fallback: extract name from "Dear [Name]," salutation (handles offer letters uploaded as resume)
+  if (!fullName) {
+    const dearMatch = text.match(/\bDear\s+([A-ZÀ-Ý][a-zA-ZÀ-ÿ]+(?:\s+[A-ZÀ-Ý][a-zA-ZÀ-ÿ]+)*),/);
+    if (dearMatch) {
+      fullName = dearMatch[1];
     }
   }
 
@@ -117,7 +123,7 @@ function parseResumeText(text: string) {
     }
   }
 
-  return { email, fullName, location, isCanada, isWA, debugLines: lines.slice(0, 10) };
+  return { email, fullName, location, isCanada, isWA };
 }
 
 const PARSE_STEPS = [
@@ -135,7 +141,6 @@ export function ResumeUpload() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [parseStepIdx, setParseStepIdx] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [debugLines, setDebugLines] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const processFile = useCallback(async (file: File) => {
@@ -167,7 +172,6 @@ export function ResumeUpload() {
       const parsed = parseResumeText(text);
 
       setParseStepIdx(3);
-      setDebugLines(parsed.debugLines);
       await new Promise(r => setTimeout(r, 300));
 
       dispatch({
@@ -235,14 +239,6 @@ export function ResumeUpload() {
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Name</p>
                   <p className="font-semibold">{resumeData.fullName || <span className="text-muted-foreground italic">Not detected</span>}</p>
-                  {!resumeData.fullName && debugLines.length > 0 && (
-                    <details className="mt-2">
-                      <summary className="text-xs text-muted-foreground cursor-pointer">Show extracted lines (debug)</summary>
-                      <ol className="mt-1 text-xs font-mono bg-muted rounded p-2 space-y-0.5 max-h-40 overflow-y-auto">
-                        {debugLines.map((l, i) => <li key={i}><span className="text-muted-foreground mr-1">{i+1}.</span>{l}</li>)}
-                      </ol>
-                    </details>
-                  )}
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Email</p>
