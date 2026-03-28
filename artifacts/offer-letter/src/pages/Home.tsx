@@ -776,11 +776,44 @@ function OfferEditor() {
                           }}
                         >
                           <option value="">— Select —</option>
-                          {ptoOptions.map(o => (
-                            <option key={o.id} value={String(o.id)}>
-                              {o.value} hrs{o.label ? ` – ${o.label}` : ''}
-                            </option>
-                          ))}
+                          {(() => {
+                            // Split into labeled (group-based) and unlabeled options
+                            const labeled = ptoOptions.filter(o => o.label);
+                            const unlabeled = ptoOptions.filter(o => !o.label);
+                            // Extract unique groups preserving order from data
+                            const groupOrder: string[] = [];
+                            labeled.forEach(o => {
+                              const g = o.label!.split(' | ')[0].trim();
+                              if (!groupOrder.includes(g)) groupOrder.push(g);
+                            });
+                            // Sort groups: Group 1 → Group 4 (senior to hourly)
+                            groupOrder.sort((a, b) => {
+                              const numA = parseInt(a.match(/\d+/)?.[0] ?? '99');
+                              const numB = parseInt(b.match(/\d+/)?.[0] ?? '99');
+                              return numA - numB;
+                            });
+                            return (
+                              <>
+                                {groupOrder.map(group => (
+                                  <optgroup key={group} label={group}>
+                                    {labeled
+                                      .filter(o => o.label!.split(' | ')[0].trim() === group)
+                                      .map(o => {
+                                        const yearCat = o.label!.split(' | ')[1]?.trim() ?? '';
+                                        return (
+                                          <option key={o.id} value={String(o.id)}>
+                                            {o.value} hrs{yearCat ? ` · ${yearCat}` : ''}
+                                          </option>
+                                        );
+                                      })}
+                                  </optgroup>
+                                ))}
+                                {unlabeled.map(o => (
+                                  <option key={o.id} value={String(o.id)}>{o.value} hrs</option>
+                                ))}
+                              </>
+                            );
+                          })()}
                         </select>
                         <Button variant={state.ptoConfirmed ? "secondary" : "default"} onClick={() => dispatch({ type: 'CONFIRM_PTO' })}>
                           {state.ptoConfirmed ? <><CheckCircle className="w-4 h-4 mr-2 text-green-600"/> Confirmed</> : "Confirm PTO"}
