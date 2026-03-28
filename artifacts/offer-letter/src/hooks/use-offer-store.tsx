@@ -109,17 +109,23 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
         newState.fieldStates['relocation_policy_attached'] = 'removed';
       }
       break;
-    case 'LOAD_TEMPLATE':
+    case 'LOAD_TEMPLATE': {
       const tpl = action.payload;
       newState.templateProfileId = tpl.id;
-      newState.formData.scenario_type = tpl.baseScenario;
-      newState.formData.site_name = tpl.site;
-      // Map active/removed fields
-      const newFieldStates: Record<string, FieldState> = {};
-      tpl.activeFields?.forEach(f => newFieldStates[f] = 'inherited');
-      tpl.removedFields?.forEach(f => newFieldStates[f] = 'removed');
-      newState.fieldStates = { ...newState.fieldStates, ...newFieldStates };
+      newState.formData = {
+        ...state.formData,
+        scenario_type: tpl.baseScenario,
+        selected_site_id: tpl.site || '',
+      };
+      // Build field states from template, merging over current
+      const tplFieldStates: Record<string, FieldState> = {};
+      (tpl.activeFields ?? []).forEach(f => { tplFieldStates[f] = 'inherited'; });
+      (tpl.removedFields ?? []).forEach(f => { tplFieldStates[f] = 'removed'; });
+      newState.fieldStates = { ...state.fieldStates, ...tplFieldStates };
+      // Reset normalization when scenario changes
+      newState.normalizationConfirmed = false;
       break;
+    }
     case 'CONFIRM_NORMALIZATION':
       newState.normalizationConfirmed = true;
       newState.formData = {

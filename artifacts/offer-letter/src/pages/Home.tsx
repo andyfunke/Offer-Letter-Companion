@@ -464,16 +464,30 @@ function OfferEditor() {
             )}
             <div className="space-y-1">
               {templatesData?.templates?.map(tpl => (
-                <button 
-                  key={tpl.id}
-                  onClick={() => {
-                    dispatch({ type: 'LOAD_TEMPLATE', payload: tpl });
-                    log('Template Sidebar', 'LOAD', { templateId: tpl.id, templateName: tpl.profileName });
-                  }}
-                  className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${state.templateProfileId === tpl.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'}`}
-                >
-                  {tpl.profileName}
-                </button>
+                <div key={tpl.id} className="flex items-center gap-1 group">
+                  <button
+                    onClick={() => {
+                      dispatch({ type: 'LOAD_TEMPLATE', payload: tpl });
+                      if (tpl.site) handleSiteChange(tpl.site);
+                      log('Template Sidebar', 'LOAD', { templateId: tpl.id, templateName: tpl.profileName });
+                    }}
+                    className={`flex-1 text-left px-3 py-2 text-sm rounded-md transition-colors ${state.templateProfileId === tpl.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'}`}
+                  >
+                    {tpl.profileName}
+                  </button>
+                  <button
+                    title="Delete template"
+                    onClick={async () => {
+                      if (!confirm(`Delete "${tpl.profileName}"?`)) return;
+                      await fetch(`${apiBase()}/templates/${tpl.id}`, { method: 'DELETE', credentials: 'include' });
+                      queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
+                      if (state.templateProfileId === tpl.id) dispatch({ type: 'SET_FIELD_VALUE', field: 'templateProfileId', value: null });
+                    }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -523,10 +537,15 @@ function OfferEditor() {
                 {state.unresolvedDecisions} Unresolved
               </button>
             ) : (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              <button
+                type="button"
+                onClick={handleExport}
+                className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors cursor-pointer"
+                title="Generate and download the offer letter (.docx)"
+              >
                 <CheckCircle className="w-4 h-4" />
-                Ready for Generation
-              </span>
+                Ready — Generate Letter
+              </button>
             )}
           </div>
           <div className="flex items-center gap-2">
