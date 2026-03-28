@@ -90,12 +90,6 @@ function parseResumeText(text: string) {
     }
   }
 
-  // Location: search only the portion of text BEFORE the "Dear [Name]," salutation.
-  // For a resume there is no "Dear" so the full text is used.
-  // For an offer letter this restricts the search to the address header block,
-  // preventing the job-site location in the letter body from being detected.
-  const locationSearchText = text.split(/\bDear\s+[A-Z]/)[0];
-
   const locationPatterns = [
     // City name: 1-3 words, each word starts with uppercase — prevents absorbing full sentences
     /\b([A-Z][a-zA-Z]+(?:[ \t][A-Z][a-zA-Z]+){0,2}),[ \t]*(BC|AB|ON|QC|SK|MB|NS|NB|PE|NL|YT|NT|NU)\b/,   // Canadian province
@@ -106,7 +100,7 @@ function parseResumeText(text: string) {
   let isWA = false;
 
   for (const pattern of locationPatterns) {
-    const match = locationSearchText.match(pattern);
+    const match = text.match(pattern);
     if (match) {
       location = match[0];
       const stateOrProvince = match[2].toUpperCase();
@@ -119,7 +113,7 @@ function parseResumeText(text: string) {
   // Fallback: look for "Vancouver" or "Toronto" etc
   if (!location) {
     const canadianCities = /\b(Vancouver|Toronto|Calgary|Edmonton|Ottawa|Winnipeg|Quebec|Montreal|Halifax)\b/i;
-    const canadianMatch = locationSearchText.match(canadianCities);
+    const canadianMatch = text.match(canadianCities);
     if (canadianMatch) {
       location = canadianMatch[0];
       isCanada = true;
