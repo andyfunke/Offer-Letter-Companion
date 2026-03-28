@@ -40,7 +40,7 @@ function plusDaysISO(n: number) {
 }
 
 const initialState: OfferState = {
-  step: 'upload',
+  step: 'form',
   resumeData: null,
   templateProfileId: null,
   formData: {
@@ -87,6 +87,7 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
       break;
     case 'SET_RESUME_DATA':
       newState.resumeData = action.payload;
+      newState.step = 'form';
       newState.formData.candidate_full_name = action.payload.fullName;
       newState.formData.candidate_email = action.payload.email;
       break;
@@ -138,7 +139,7 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
       newState.ptoConfirmed = true;
       break;
     case 'RESET':
-      return initialState;
+      return { ...initialState, step: 'upload' };
     default:
       return state;
   }
