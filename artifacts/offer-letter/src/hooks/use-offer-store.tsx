@@ -53,6 +53,7 @@ const initialState: OfferState = {
     letter_date: todayISO(),
     acceptance_deadline: plusDaysISO(8),
     stip_effective_year: new Date().getFullYear(),
+    next_review_year: new Date().getFullYear() + 1,
   },
   fieldStates: {},
   unresolvedDecisions: 0,
