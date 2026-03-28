@@ -191,18 +191,10 @@ function OfferEditor() {
     pto_hours: 'pto_confirmed_value',
   };
 
-  function handleTokenClick(token: string) {
-    const fieldId = TOKEN_FIELD_MAP[token] ?? token;
+  function flashField(fieldId: string): boolean {
     const el = document.getElementById(`field-${fieldId}`);
-    if (!el) {
-      // Try the raw id (input elements)
-      const raw = document.getElementById(fieldId);
-      raw?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
-    // Scroll into view
+    if (!el) return false;
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Flash red highlight
     el.style.transition = 'outline 0s, background-color 0.15s ease';
     el.style.outline = '2.5px solid rgb(239, 68, 68)';
     el.style.backgroundColor = 'rgba(239, 68, 68, 0.07)';
@@ -212,6 +204,29 @@ function OfferEditor() {
       el.style.outline = '';
       el.style.backgroundColor = '';
     }, 1800);
+    return true;
+  }
+
+  function handleScrollToFirstUnresolved() {
+    const fd = state.formData;
+    if (!fd.candidate_full_name)  return flashField('candidate_full_name');
+    if (!fd.candidate_email)      return flashField('candidate_email');
+    if (!fd.start_date)           return flashField('start_date');
+    if (!fd.governing_state)      return flashField('governing_state');
+    if (fd.pay_basis === 'salaried' && (!fd.annual_salary_input || !state.normalizationConfirmed))
+                                  return flashField('annual_salary_input');
+    if (!fd.annual_salary_input && !fd.hourly_rate_input)
+                                  return flashField('annual_salary_input');
+    if (!state.ptoConfirmed)      return flashField('pto_confirmed_value');
+    if (state.fieldStates['immigration_applicable'] === 'active' && !fd.immigration_partner_name)
+                                  return flashField('immigration_partner_name');
+  }
+
+  function handleTokenClick(token: string) {
+    const fieldId = TOKEN_FIELD_MAP[token] ?? token;
+    if (!flashField(fieldId)) {
+      document.getElementById(fieldId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 
   const handleCopyPayload = () => {
@@ -498,10 +513,15 @@ function OfferEditor() {
           <div className="flex items-center gap-4">
             <h1 className="font-serif text-xl font-semibold">Offer Letter Assembly</h1>
             {state.unresolvedDecisions > 0 ? (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+              <button
+                type="button"
+                onClick={handleScrollToFirstUnresolved}
+                className="flex items-center gap-1.5 text-sm font-medium text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 hover:bg-amber-100 hover:border-amber-300 transition-colors cursor-pointer"
+                title="Click to jump to the first required field that needs attention"
+              >
                 <AlertCircle className="w-4 h-4" />
                 {state.unresolvedDecisions} Unresolved
-              </span>
+              </button>
             ) : (
               <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                 <CheckCircle className="w-4 h-4" />

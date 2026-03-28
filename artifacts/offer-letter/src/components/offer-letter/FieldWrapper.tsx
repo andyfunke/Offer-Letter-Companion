@@ -43,6 +43,9 @@ export function FieldWrapper({ id, label, children, optional = false, helpText }
           <div className="flex items-center gap-2">
             <label htmlFor={id} className={cn("text-sm font-semibold", isRemoved ? "text-muted-foreground line-through" : "text-foreground")}>
               {label}
+              {!optional && !isRemoved && (
+                <span className="ml-0.5 text-red-500 select-none" aria-label="required">*</span>
+              )}
             </label>
             {isInherited && !isRemoved && (
               <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0 h-5 text-[10px]">
