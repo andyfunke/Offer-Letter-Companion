@@ -88,7 +88,6 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
       newState.resumeData = action.payload;
       newState.formData.candidate_full_name = action.payload.fullName;
       newState.formData.candidate_email = action.payload.email;
-      newState.formData.site_location = action.payload.location;
       break;
     case 'SET_FIELD_VALUE':
       newState.formData = { ...state.formData, [action.field]: action.value };
