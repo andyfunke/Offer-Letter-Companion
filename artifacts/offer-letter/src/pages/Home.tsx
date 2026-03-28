@@ -42,8 +42,9 @@ function OfferEditor() {
 
   // Load HR contacts list for dropdown; auto-select default when list arrives
   useEffect(() => {
+    if (!user) return;
     fetch(`${apiBase()}/auth/hr-contacts`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : { contacts: [] })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`hr-contacts: ${r.status}`)))
       .then(data => {
         const contacts: HrContact[] = data.contacts ?? [];
         setHrContacts(contacts);
@@ -54,17 +55,18 @@ function OfferEditor() {
           if (def.email) dispatch({ type: 'SET_FIELD_VALUE', field: 'hr_contact_email', value: def.email });
         }
       })
-      .catch(() => {});
+      .catch(err => console.error('[HR contacts]', err));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user?.id]);
 
   // Load PTO options
   useEffect(() => {
+    if (!user) return;
     fetch(`${apiBase()}/admin/pto-options`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : [])
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`pto-options: ${r.status}`)))
       .then(data => setPtoOptions(Array.isArray(data) ? data : []))
-      .catch(() => {});
-  }, []);
+      .catch(err => console.error('[PTO options]', err));
+  }, [user?.id]);
 
   // Auto-populate site fields + HR contact from user's assigned site
   useEffect(() => {

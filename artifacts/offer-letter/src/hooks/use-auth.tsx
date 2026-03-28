@@ -29,8 +29,12 @@ const ADMIN_ROLES = new Set(['admin', 'system_admin', 'hr_admin']);
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function apiBase() {
-  const base = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
-  return `${base}/../api`.replace('//', '/');
+  const raw = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
+  // raw = '' when app is served at root ('/'), otherwise e.g. '/offer-letter'
+  if (!raw) return '/api';
+  // Go up one path segment to reach the sibling /api prefix
+  const parent = raw.split('/').slice(0, -1).join('/');
+  return (parent || '') + '/api';
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
