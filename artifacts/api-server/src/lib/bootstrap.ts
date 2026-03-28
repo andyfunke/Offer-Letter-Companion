@@ -1,5 +1,5 @@
 import { db, usersTable, ptoOptionsTable, hrProfilesTable } from "@workspace/db";
-import { eq, count, sql, inArray } from "drizzle-orm";
+import { eq, count, sql, inArray, isNull, isNotNull } from "drizzle-orm";
 import { hashPassword } from "./passwords";
 import { logger } from "./logger";
 
@@ -37,7 +37,28 @@ const SEEDED_HR_PROFILES = [
   },
 ];
 
-const SEEDED_PTO_OPTIONS = [96, 120, 136, 160, 176, 200, 216];
+const SEEDED_PTO_OPTIONS: { value: number; label: string }[] = [
+  { value: 96,  label: "Group 4: Hourly · <5 Years" },
+  { value: 120, label: "Group 3: Supervisors/Technical/Professional · <5 Years" },
+  { value: 120, label: "Group 3: Supervisors/Technical/Professional · >5 Years" },
+  { value: 120, label: "Group 2: Manager/Superintendent/Principal Advisor · <5 Years" },
+  { value: 136, label: "Group 4: Hourly · >5 Years" },
+  { value: 160, label: "Group 3: Supervisors/Technical/Professional · >10 Years" },
+  { value: 160, label: "Group 3: Supervisors/Technical/Professional · >15 Years" },
+  { value: 160, label: "Group 2: Manager/Superintendent/Principal Advisor · >5 Years" },
+  { value: 160, label: "Group 2: Manager/Superintendent/Principal Advisor · >10 Years" },
+  { value: 160, label: "Group 2: Manager/Superintendent/Principal Advisor · >15 Years" },
+  { value: 160, label: "Group 1: Director/VP · <5 Years" },
+  { value: 160, label: "Group 1: Director/VP · >5 Years" },
+  { value: 160, label: "Group 1: Director/VP · >10 Years" },
+  { value: 160, label: "Group 1: Director/VP · >15 Years" },
+  { value: 176, label: "Group 4: Hourly · >10 Years" },
+  { value: 176, label: "Group 4: Hourly · >15 Years" },
+  { value: 200, label: "Group 3: Supervisors/Technical/Professional · >20 Years" },
+  { value: 200, label: "Group 2: Manager/Superintendent/Principal Advisor · >20 Years" },
+  { value: 200, label: "Group 1: Director/VP · >20 Years" },
+  { value: 216, label: "Group 4: Hourly · >20 Years" },
+];
 
 export async function ensureSeededUsers(): Promise<void> {
   for (const u of SEEDED_USERS) {
@@ -67,13 +88,23 @@ export async function ensureSeededUsers(): Promise<void> {
 }
 
 export async function ensurePtoOptions(): Promise<void> {
-  const existing = await db.select({ value: ptoOptionsTable.value }).from(ptoOptionsTable);
-  const existingValues = new Set(existing.map(o => o.value));
-  const missing = SEEDED_PTO_OPTIONS.filter(v => !existingValues.has(v));
-  if (missing.length > 0) {
-    await db.insert(ptoOptionsTable).values(missing.map(value => ({ value })));
-    logger.info({ missing }, "Seeded missing PTO options.");
+  // Check whether any labeled options already exist (admin-managed data)
+  const [labeledRow] = await db
+    .select({ id: ptoOptionsTable.id })
+    .from(ptoOptionsTable)
+    .where(isNotNull(ptoOptionsTable.label))
+    .limit(1);
+
+  if (labeledRow) {
+    // Admin has already set up structured options — leave them alone.
+    return;
   }
+
+  // No labeled entries: perform a full replace with the canonical seed data.
+  // This covers both fresh installs and upgrades from the old unlabeled seeds.
+  await db.delete(ptoOptionsTable);
+  await db.insert(ptoOptionsTable).values(SEEDED_PTO_OPTIONS);
+  logger.info({ count: SEEDED_PTO_OPTIONS.length }, "Seeded PTO options from canonical dataset.");
 }
 
 export async function ensureSeededHrProfiles(): Promise<void> {
