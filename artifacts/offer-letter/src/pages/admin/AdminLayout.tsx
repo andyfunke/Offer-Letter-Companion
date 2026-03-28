@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/use-auth';
-import { Shield, Users, AlertCircle, LayoutDashboard, ChevronRight, LogOut, Calendar, FileText, UserCheck } from 'lucide-react';
+import { Shield, Users, AlertCircle, LayoutDashboard, ChevronRight, LogOut, Calendar, FileText, UserCheck, Activity } from 'lucide-react';
 
 const NAV_GROUPS = [
   {
@@ -22,6 +22,7 @@ const NAV_GROUPS = [
     label: 'System',
     items: [
       { href: '/admin/users', label: 'User Accounts', icon: Users, minRole: 'admin' as const },
+      { href: '/admin/interactions', label: 'Activity Log', icon: Activity, minRole: 'admin' as const },
       { href: '/admin/security-spec', label: 'Security Spec', icon: Shield, minRole: 'admin' as const },
     ],
   },

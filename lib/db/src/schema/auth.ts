@@ -122,11 +122,26 @@ export const hrProfilesTable = pgTable("hr_profiles", {
   email: text("email"),
   site: text("site"),
   isActive: boolean("is_active").notNull().default(true),
+  isDefault: boolean("is_default").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export type HrProfile = typeof hrProfilesTable.$inferSelect;
+
+// ── User Interaction Log ───────────────────────────────────────────────────
+export const userInteractionsTable = pgTable("user_interactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  username: text("username"),
+  action: text("action").notNull(),
+  element: text("element").notNull(),
+  page: text("page"),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type UserInteraction = typeof userInteractionsTable.$inferSelect;
 
 // ── App Settings (key/value store for letterhead template etc.) ────────────
 export const appSettingsTable = pgTable("app_settings", {

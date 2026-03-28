@@ -241,6 +241,7 @@ router.get("/hr-contacts", requireAuth, async (_req, res) => {
         lastName: hrProfilesTable.lastName,
         email: hrProfilesTable.email,
         site: hrProfilesTable.site,
+        isDefault: hrProfilesTable.isDefault,
       })
       .from(hrProfilesTable)
       .where(eq(hrProfilesTable.isActive, true))

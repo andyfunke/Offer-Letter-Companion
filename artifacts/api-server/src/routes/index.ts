@@ -7,6 +7,7 @@ import adminUsersRouter from "./admin/users";
 import adminIssuesRouter from "./admin/issues";
 import adminConfigRouter from "./admin/config";
 import adminHrProfilesRouter from "./admin/hr-profiles";
+import adminInteractionsRouter from "./admin/interactions";
 import exportRouter from "./export";
 import telemetryRouter from "./telemetry";
 
@@ -18,6 +19,7 @@ router.use("/templates", templatesRouter);
 router.use("/offers", offersRouter);
 router.use("/telemetry", telemetryRouter);
 router.use("/admin/hr-profiles", adminHrProfilesRouter);
+router.use("/admin/interactions", adminInteractionsRouter);
 router.use("/admin/users", adminUsersRouter);
 router.use("/admin/issues", adminIssuesRouter);
 router.use("/admin", adminConfigRouter);

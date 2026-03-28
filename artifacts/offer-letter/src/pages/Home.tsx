@@ -20,8 +20,9 @@ import { buildTokenMap, renderToString, renderSegments } from '@/lib/render-clau
 import { KINROSS_SITES, US_STATES, CA_PROVINCES } from '@/data/kinross-sites';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, apiBase } from '@/hooks/use-auth';
+import { useInteractionLog } from '@/hooks/use-interaction-log';
 
-interface HrContact { id: number; firstName: string; lastName: string; email: string | null; site: string | null; }
+interface HrContact { id: number; firstName: string; lastName: string; email: string | null; site: string | null; isDefault?: boolean; }
 
 interface PtoOption { id: number; value: number; label: string | null; }
 
@@ -37,13 +38,24 @@ function OfferEditor() {
   const [saveProfileOpen, setSaveProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
+  const { log } = useInteractionLog();
 
-  // Load HR contacts list for dropdown
+  // Load HR contacts list for dropdown; auto-select default when list arrives
   useEffect(() => {
     fetch(`${apiBase()}/auth/hr-contacts`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : { contacts: [] })
-      .then(data => setHrContacts(data.contacts ?? []))
+      .then(data => {
+        const contacts: HrContact[] = data.contacts ?? [];
+        setHrContacts(contacts);
+        // Auto-fill default HR contact if form field is empty
+        const def = contacts.find(c => c.isDefault);
+        if (def && !state.formData.hr_contact_name) {
+          dispatch({ type: 'SET_FIELD_VALUE', field: 'hr_contact_name', value: `${def.firstName} ${def.lastName}` });
+          if (def.email) dispatch({ type: 'SET_FIELD_VALUE', field: 'hr_contact_email', value: def.email });
+        }
+      })
       .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load PTO options
@@ -105,6 +117,7 @@ function OfferEditor() {
         const site = KINROSS_SITES.find(s => s.id === contact.site);
         if (site?.governingState) handleGoverningStateChange(site.governingState);
       }
+      log('HR Contact Dropdown', 'CHANGE', { contactId, name: `${contact.firstName} ${contact.lastName}` });
     } else {
       setField('hr_contact_name', '');
       setField('hr_contact_email', '');
@@ -119,6 +132,7 @@ function OfferEditor() {
     setField('site_subsidiary_name', site.subsidiaryName);
     setField('site_location', site.location);
     if (site.governingState) handleGoverningStateChange(site.governingState);
+    log('Site Dropdown', 'CHANGE', { siteId, siteName: site.label });
   }
 
   // Save current state as a named profile template
@@ -145,6 +159,7 @@ function OfferEditor() {
       });
       if (r.ok) {
         toast({ title: 'Profile Saved', description: `"${profileName.trim()}" saved as a template.` });
+        log('Save Profile', 'SAVE', { profileName: profileName.trim() });
         setProfileName('');
         setSaveProfileOpen(false);
       } else {
@@ -166,6 +181,7 @@ function OfferEditor() {
   };
 
   const handleSaveDraft = () => {
+    log('Save Draft Button', 'SAVE', { scenario: state.formData.scenario_type, candidate: state.formData.candidate_full_name });
     createOfferMutation.mutate({
       data: {
         templateProfileId: state.templateProfileId || undefined,
@@ -280,6 +296,7 @@ function OfferEditor() {
         a.download = `Offer_Letter_${safeName}.docx`;
         a.click();
         URL.revokeObjectURL(url);
+        log('Export Button', 'EXPORT', { format: 'docx', candidate: formData.candidate_full_name, scenario });
         toast({ title: 'Letter Exported', description: 'Offer letter downloaded as Word document.' });
         return;
       }
@@ -387,7 +404,10 @@ function OfferEditor() {
               {templatesData?.templates?.map(tpl => (
                 <button 
                   key={tpl.id}
-                  onClick={() => dispatch({ type: 'LOAD_TEMPLATE', payload: tpl })}
+                  onClick={() => {
+                    dispatch({ type: 'LOAD_TEMPLATE', payload: tpl });
+                    log('Template Sidebar', 'LOAD', { templateId: tpl.id, templateName: tpl.profileName });
+                  }}
                   className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${state.templateProfileId === tpl.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'}`}
                 >
                   {tpl.profileName}
@@ -461,6 +481,7 @@ function OfferEditor() {
               onClick={() => {
                 if (confirm('Clear all form data? This cannot be undone.')) {
                   dispatch({ type: 'RESET' });
+                  log('Clear Form Button', 'CLICK');
                   toast({ title: 'Form Cleared', description: 'All candidate and offer data has been removed.' });
                 }
               }}
@@ -517,7 +538,10 @@ function OfferEditor() {
                       <select
                         className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                         value={state.formData.scenario_type || 'new_hire_salaried'}
-                        onChange={e => setField('scenario_type', e.target.value)}
+                        onChange={e => {
+                          setField('scenario_type', e.target.value);
+                          log('Scenario Dropdown', 'CHANGE', { scenario: e.target.value });
+                        }}
                       >
                         {(Object.entries(SCENARIO_LABELS) as [ScenarioId, string][]).map(([id, label]) => (
                           <option key={id} value={id}>{label}</option>

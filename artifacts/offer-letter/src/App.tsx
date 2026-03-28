@@ -18,6 +18,7 @@ import IssuePreview from "@/pages/admin/IssuePreview";
 import AdminPto from "@/pages/admin/AdminPto";
 import AdminLetterhead from "@/pages/admin/AdminLetterhead";
 import AdminHrProfiles from "@/pages/admin/AdminHrProfiles";
+import AdminInteractions from "@/pages/admin/AdminInteractions";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
@@ -105,6 +106,9 @@ function Router() {
       </Route>
       <Route path="/admin/hr-contacts">
         <RequireAuth minRole="system_admin"><AdminHrProfiles /></RequireAuth>
+      </Route>
+      <Route path="/admin/interactions">
+        <RequireAuth minRole="system_admin"><AdminInteractions /></RequireAuth>
       </Route>
       <Route path="/admin/security-spec">
         <RequireAuth minRole="system_admin"><AdminSecuritySpec /></RequireAuth>

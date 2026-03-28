@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { db, telemetryIssuesTable, issueSnapshotsTable } from "@workspace/db";
+import { db, telemetryIssuesTable, issueSnapshotsTable, userInteractionsTable } from "@workspace/db";
 import { requireAuth } from "../middleware/auth-guard";
 import { auditEvent } from "../middleware/audit";
 
@@ -108,6 +108,32 @@ router.get("/issues", async (req, res) => {
     res.json({ issues });
   } catch (err) {
     res.status(500).json({ error: "Failed to load issues." });
+  }
+});
+
+// ── POST /api/telemetry/log — record a user interaction ───────────────────
+const logSchema = z.object({
+  action: z.string().max(100),
+  element: z.string().max(200),
+  page: z.string().max(200).optional(),
+  details: z.record(z.unknown()).optional(),
+});
+
+router.post("/log", async (req, res) => {
+  try {
+    const body = logSchema.parse(req.body);
+    const user = req.user!;
+    await db.insert(userInteractionsTable).values({
+      userId: user.id,
+      username: user.username,
+      action: body.action,
+      element: body.element,
+      page: body.page ?? null,
+      details: body.details ?? null,
+    });
+    res.status(204).end();
+  } catch {
+    res.status(204).end(); // never block the client on log failures
   }
 });
 
