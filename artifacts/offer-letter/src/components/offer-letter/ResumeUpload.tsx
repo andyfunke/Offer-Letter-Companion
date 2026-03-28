@@ -59,23 +59,32 @@ function parseResumeText(text: string) {
   const emailMatch = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
   const email = emailMatch ? emailMatch[0] : '';
 
-  // Name: take first non-blank line that looks like a personal name (2–4 words, no digits/symbols/geography)
+  // Name: take first non-blank line that looks like a personal name
   const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
   let fullName = '';
 
   // Patterns that indicate the line is NOT a name
   const NOT_NAME = /\d|@|http|\.com|Street|Ave|Blvd|Dr\.|Suite|Floor|P\.?O\.\s*Box|Apt\.?|Unit\s|\bWA\b|\bOR\b|\bCA\b|\bBC\b|\bAB\b|\bON\b|\bNY\b|\bTX\b|\bFL\b|\bCO\b|\bID\b|\bMT\b|\bUT\b|\bNV\b|\bAZ\b|\bNM\b|\bState\b|\bCounty\b|\bCity\b|LinkedIn|GitHub|Portfolio|Summary|Objective|Experience|Education|Skills|References|Profile|Resume|Curriculum|\bConfidential\b|\bPrivate\b|\bDear\b|\bSincerely\b|\bRegards\b|\bOffer\s+Letter\b/i;
 
-  for (const line of lines.slice(0, 12)) {
-    const words = line.split(/\s+/);
-    if (
-      words.length >= 2 &&
-      words.length <= 4 &&
-      /^[A-ZÀ-Ý]/.test(line) &&           // starts with uppercase
-      !/[,|•·–\-\/\\]/.test(line) &&       // no punctuation typical of address/header lines
-      !NOT_NAME.test(line)
-    ) {
-      fullName = line;
+  // Helper: test a candidate string for name-like quality
+  const looksLikeName = (candidate: string) => {
+    const words = candidate.split(/\s+/);
+    return (
+      words.length >= 1 &&
+      words.length <= 5 &&
+      /^[A-ZÀ-Ýa-z]/.test(candidate) &&
+      !/[|•·–\/\\]/.test(candidate) &&   // block separators but NOT hyphens (hyphenated names are valid)
+      !NOT_NAME.test(candidate)
+    );
+  };
+
+  for (const line of lines.slice(0, 20)) {
+    // Some resumes put name and contact info on same line separated by | or —
+    // Try the first segment before any separator
+    const firstSegment = line.split(/[|—–]/, 1)[0].trim();
+    const candidate = firstSegment || line;
+    if (looksLikeName(candidate) && candidate.length >= 2) {
+      fullName = candidate;
       break;
     }
   }
