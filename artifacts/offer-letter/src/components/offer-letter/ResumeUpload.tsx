@@ -66,24 +66,17 @@ function parseResumeText(text: string) {
   // Patterns that indicate the line is NOT a name
   const NOT_NAME = /\d|@|http|\.com|Street|Ave|Blvd|Dr\.|Suite|Floor|P\.?O\.\s*Box|Apt\.?|Unit\s|\bWA\b|\bOR\b|\bCA\b|\bBC\b|\bAB\b|\bON\b|\bNY\b|\bTX\b|\bFL\b|\bCO\b|\bID\b|\bMT\b|\bUT\b|\bNV\b|\bAZ\b|\bNM\b|\bState\b|\bCounty\b|\bCity\b|LinkedIn|GitHub|Portfolio|Summary|Objective|Experience|Education|Skills|References|Profile|Resume|Curriculum|\bConfidential\b|\bPrivate\b|\bDear\b|\bSincerely\b|\bRegards\b|\bOffer\s+Letter\b/i;
 
-  // Helper: test a candidate string for name-like quality
-  const looksLikeName = (candidate: string) => {
+  for (const line of lines.slice(0, 10)) {
+    // Some resumes put name and contact info on one line separated by | or em-dash; take the first segment
+    const candidate = line.split(/[|—–]/, 1)[0].trim();
     const words = candidate.split(/\s+/);
-    return (
-      words.length >= 1 &&
-      words.length <= 5 &&
-      /^[A-ZÀ-Ýa-z]/.test(candidate) &&
-      !/[|•·–\/\\]/.test(candidate) &&   // block separators but NOT hyphens (hyphenated names are valid)
+    if (
+      words.length >= 2 &&
+      words.length <= 4 &&
+      /^[A-ZÀ-Ý]/.test(candidate) &&       // must start with uppercase
+      !/[,|•·–\/\\]/.test(candidate) &&     // no separators (hyphens allowed for hyphenated names)
       !NOT_NAME.test(candidate)
-    );
-  };
-
-  for (const line of lines.slice(0, 20)) {
-    // Some resumes put name and contact info on same line separated by | or —
-    // Try the first segment before any separator
-    const firstSegment = line.split(/[|—–]/, 1)[0].trim();
-    const candidate = firstSegment || line;
-    if (looksLikeName(candidate) && candidate.length >= 2) {
+    ) {
       fullName = candidate;
       break;
     }
