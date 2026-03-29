@@ -116,4 +116,39 @@ router.get("/letterhead/status", requireAuth, async (_req, res) => {
   }
 });
 
+// ── TEMPLATE FOLDER URL ────────────────────────────────────────────────────
+
+// GET /api/admin/settings/template-folder-url  (admin only)
+router.get("/settings/template-folder-url", requireAuth, requireRole("admin"), async (_req, res) => {
+  try {
+    const [setting] = await db
+      .select({ valueText: appSettingsTable.valueText })
+      .from(appSettingsTable)
+      .where(eq(appSettingsTable.key, "template_folder_url"))
+      .limit(1);
+    res.json({ url: setting?.valueText ?? null });
+  } catch {
+    res.status(500).json({ error: "Failed to fetch template folder URL." });
+  }
+});
+
+// PUT /api/admin/settings/template-folder-url  (admin only)
+router.put("/settings/template-folder-url", requireAuth, requireRole("admin"), async (req, res) => {
+  try {
+    const { url } = z.object({
+      url: z.string().trim(),
+    }).parse(req.body);
+    const stored = url || null;
+    await db
+      .insert(appSettingsTable)
+      .values({ key: "template_folder_url", valueText: stored, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: appSettingsTable.key, set: { valueText: stored, updatedAt: new Date() } });
+    auditEvent("TEMPLATE_FOLDER_URL_UPDATED", { url: stored, userId: req.user!.id });
+    res.json({ ok: true, url: stored });
+  } catch (err) {
+    if (err instanceof z.ZodError) { res.status(400).json({ error: err.issues[0]?.message }); return; }
+    res.status(500).json({ error: "Failed to update template folder URL." });
+  }
+});
+
 export default router;
