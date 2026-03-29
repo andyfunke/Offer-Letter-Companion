@@ -63,7 +63,6 @@ const initialState: OfferState = {
 
 function calculateUnresolved(state: OfferState): number {
   let count = 0;
-  if (!state.resumeData) count++;
   if (!state.formData.candidate_full_name) count++;
   if (!state.formData.candidate_email) count++;
   if (!state.formData.start_date) count++;
