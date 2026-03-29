@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { apiBase } from '@/hooks/use-auth';
-import { Settings, ExternalLink, Save } from 'lucide-react';
+import { Settings, ExternalLink, Save, Link2 } from 'lucide-react';
 
 export default function AdminSettings() {
   const { toast } = useToast();
@@ -14,6 +14,8 @@ export default function AdminSettings() {
   const [saved, setSaved] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const currentPageUrl = window.location.href;
 
   useEffect(() => {
     fetch(`${apiBase()}/admin/settings/template-folder-url`, { credentials: 'include' })
@@ -56,13 +58,32 @@ export default function AdminSettings() {
             <p className="text-sm text-muted-foreground">Global configuration for the Offer Letter Companion.</p>
           </div>
         </div>
+
+        {/* Current page URL reference */}
+        <Card className="mb-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Link2 className="w-4 h-4 text-muted-foreground" />This Settings Page
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-2">Bookmark or share this direct link to return to Settings.</p>
+            <a
+              href={currentPageUrl}
+              className="block font-mono text-xs text-primary break-all hover:underline"
+            >
+              {currentPageUrl}
+            </a>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader><CardTitle className="text-base">Template Folder Location</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
               The shared folder where offer letter template files (.docx) are stored.
               Paste a SharePoint, OneDrive, or any URL. Recruiters will see an
-              "Open Folder" link on the main screen pointing here.
+              &ldquo;Open Folder&rdquo; link on the main screen pointing here.
             </p>
             {loading ? (
               <p className="text-sm text-muted-foreground animate-pulse">Loading...</p>
@@ -77,6 +98,17 @@ export default function AdminSettings() {
                   onChange={e => setFolderUrl(e.target.value)}
                   className="font-mono text-xs"
                 />
+                {saved && (
+                  <a
+                    href={saved}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-primary hover:underline mt-1"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    {saved}
+                  </a>
+                )}
               </div>
             )}
             <div className="flex items-center gap-3">
