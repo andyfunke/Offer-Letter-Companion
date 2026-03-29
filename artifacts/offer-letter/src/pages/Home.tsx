@@ -115,7 +115,7 @@ async function extractAndParse(file: File): Promise<{ fullName: string; email: s
     if (m) fullName = m[1];
   }
 
-  const emailMatch = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  const emailMatch = text.match(/(?<![a-zA-Z0-9])[a-z0-9][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
   const email = emailMatch ? emailMatch[0] : '';
 
   const locationPatterns = [
