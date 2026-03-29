@@ -55,8 +55,9 @@ async function extractTextFromDocx(file: File): Promise<string> {
 
 // ── Parse candidate fields from plain text ──────────────────────────────────
 function parseResumeText(text: string) {
-  // Email
-  const emailMatch = text.match(/(?<![a-zA-Z0-9])[a-z0-9][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  // Email — opening character class now includes A-Z so uppercase-starting
+  // local parts (e.g. John.Smith@gmail.com) are matched correctly.
+  const emailMatch = text.match(/(?<![a-zA-Z0-9])[a-zA-Z0-9][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/i);
   const email = emailMatch ? emailMatch[0] : '';
 
   // Name: take first non-blank line that looks like a personal name
