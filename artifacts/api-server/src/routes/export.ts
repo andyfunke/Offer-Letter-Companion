@@ -91,7 +91,7 @@ function textParagraph(text: string, bold = false): string {
 
 /** Empty paragraph / line break */
 function emptyParagraph(): string {
-  return `<w:p><w:pPr>${SPACING}</w:pPr></w:p>`;
+  return `<w:p><w:pPr><w:spacing w:line="120" w:lineRule="exact" w:before="0" w:after="0"/></w:pPr></w:p>`;
 }
 
 /** Paragraph with explicit spacing override (for pPr) */
