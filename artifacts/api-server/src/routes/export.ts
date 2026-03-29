@@ -136,8 +136,8 @@ function makeSignatureTable(sig: SigBlock): string {
 
 const segmentSchema = z.object({
   kind: z.enum(["text", "filled", "unfilled"]),
-  value: z.string().optional(),
-  token: z.string().optional(),
+  value: z.coerce.string().optional(),
+  token: z.coerce.string().optional(),
 });
 
 const signatureBlockSchema = z.object({
@@ -146,7 +146,7 @@ const signatureBlockSchema = z.object({
   mgmtName: z.string(),
   mgmtTitle: z.string(),
   candidateName: z.string(),
-  year: z.number().int(),
+  year: z.coerce.number().int(),
 }).optional();
 
 const exportSchema = z.object({
