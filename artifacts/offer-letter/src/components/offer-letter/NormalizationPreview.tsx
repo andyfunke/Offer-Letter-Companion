@@ -10,38 +10,26 @@ export function NormalizationPreview() {
   const rawSalary = state.formData.annual_salary_input || 0;
   const isConfirmed = state.normalizationConfirmed;
 
-  const [calc, setCalc] = useState({
-    hourly: 0,
-    roundedHourly: 0,
-    recomputedAnnual: 0,
-    biweekly: 0,
-  });
-
-  // Whether the user has clicked the Actual Annual card to "select" it
   const [selected, setSelected] = useState(false);
 
-  // Reset selection if salary changes or confirmation is cleared
+  // Reset selection whenever salary changes or confirmation is cleared
   useEffect(() => {
     if (!isConfirmed) setSelected(false);
   }, [rawSalary, isConfirmed]);
 
-  useEffect(() => {
-    if (rawSalary > 0) {
-      const hourly = rawSalary / 2080;
-      const roundedHourly = Math.ceil(hourly * 100) / 100;
-      const recomputedAnnual = roundedHourly * 2080;
-      const biweekly = recomputedAnnual / 26;
-      setCalc({ hourly, roundedHourly, recomputedAnnual, biweekly });
-    }
-  }, [rawSalary]);
+  // Compute inline — no useState/useEffect so handleConfirm always sees current values
+  const hourly = rawSalary > 0 ? rawSalary / 2080 : 0;
+  const roundedHourly = rawSalary > 0 ? Math.ceil(hourly * 100) / 100 : 0;
+  const recomputedAnnual = roundedHourly * 2080;
+  const biweekly = recomputedAnnual / 26;
 
   if (!rawSalary) return null;
 
   function handleConfirm() {
     dispatch({
       type: 'CONFIRM_NORMALIZATION',
-      normalizedAnnual: calc.recomputedAnnual,
-      normalizedBiweekly: calc.biweekly,
+      normalizedAnnual: recomputedAnnual,
+      normalizedBiweekly: biweekly,
     });
   }
 
@@ -53,19 +41,19 @@ export function NormalizationPreview() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-        {/* Target Annual — static info card */}
+        {/* Target Annual */}
         <div className="p-3 bg-white rounded-lg border shadow-sm">
           <p className="text-muted-foreground text-xs mb-1">Target Annual</p>
           <p className="font-semibold">{formatCurrency(rawSalary)}</p>
         </div>
 
-        {/* Hourly Base — static info card */}
+        {/* Hourly Base */}
         <div className="p-3 bg-white rounded-lg border shadow-sm">
           <p className="text-muted-foreground text-xs mb-1">Hourly Base (÷2080)</p>
-          <p className="font-semibold">{formatCurrency(calc.roundedHourly)}</p>
+          <p className="font-semibold">{formatCurrency(roundedHourly)}</p>
         </div>
 
-        {/* Actual Annual — clickable selection button */}
+        {/* Actual Annual — clickable */}
         <button
           type="button"
           onClick={() => !isConfirmed && setSelected(true)}
@@ -84,23 +72,23 @@ export function NormalizationPreview() {
             {isConfirmed ? "Confirmed Annual" : "Actual Annual"}
           </p>
           <p className={cn("font-bold text-base", isConfirmed ? "text-green-700" : selected ? "text-white" : "text-primary")}>
-            {formatCurrency(calc.recomputedAnnual)}
+            {formatCurrency(recomputedAnnual)}
           </p>
         </button>
 
-        {/* Bi-Weekly — static info card */}
+        {/* Bi-Weekly */}
         <div className="p-3 bg-white rounded-lg border shadow-sm">
           <p className="text-muted-foreground text-xs mb-1">Bi-Weekly</p>
-          <p className="font-semibold">{formatCurrency(calc.biweekly)}</p>
+          <p className="font-semibold">{formatCurrency(biweekly)}</p>
         </div>
       </div>
 
       <div className="flex items-center justify-between pt-2">
         <p className="text-xs text-muted-foreground max-w-[70%]">
           {isConfirmed
-            ? <>Letter uses the normalized salary of <strong>{formatCurrency(calc.recomputedAnnual)}</strong> (rounded hourly × 2080).</>
+            ? <>Letter uses the normalized salary of <strong>{formatCurrency(recomputedAnnual)}</strong> (rounded hourly × 2080).</>
             : selected
-              ? <>Ready to confirm <strong>{formatCurrency(calc.recomputedAnnual)}</strong> as the offer salary — hit Confirm to update the letter.</>
+              ? <>Ready to confirm <strong>{formatCurrency(recomputedAnnual)}</strong> as the offer salary — hit Confirm to update the letter.</>
               : <>Click <strong>Actual Annual</strong> to select the normalized amount, then confirm to update the letter.</>
           }
         </p>
