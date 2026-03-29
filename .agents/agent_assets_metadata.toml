@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "2rcmUf742vQVLmkMo-0QA"
+uri = "file://kinross-offer-letter.tar.gz"
+type = "unspecified"
+title = "Kinross Offer Letter Companion — Full Source"
