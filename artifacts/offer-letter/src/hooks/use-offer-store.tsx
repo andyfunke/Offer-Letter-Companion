@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import { TemplateProfile } from '@workspace/api-client-react';
+import { KINROSS_SITES } from '@/data/kinross-sites';
 
 export type FieldState = 'active' | 'removed' | 'inherited';
 
@@ -112,11 +113,28 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
     case 'LOAD_TEMPLATE': {
       const tpl = action.payload;
       newState.templateProfileId = tpl.id;
+
+      // Resolve site-derived fields atomically so no separate handleSiteChange call is needed
+      const site = tpl.site ? KINROSS_SITES.find(s => s.id === tpl.site) : undefined;
+
+      // Restore HR contact from template's defaultHrContact { name, email }
+      const hrContact = tpl.defaultHrContact ?? {};
+
       newState.formData = {
         ...state.formData,
         scenario_type: tpl.baseScenario,
         selected_site_id: tpl.site || '',
+        ...(site ? {
+          site_subsidiary_name: site.subsidiaryName,
+          site_location: site.location,
+          governing_state: site.governingState,
+        } : {}),
+        ...(hrContact.name ? {
+          hr_contact_name: hrContact.name,
+          hr_contact_email: hrContact.email || '',
+        } : {}),
       };
+
       // Build field states from template, merging over current
       const tplFieldStates: Record<string, FieldState> = {};
       (tpl.activeFields ?? []).forEach(f => { tplFieldStates[f] = 'inherited'; });
