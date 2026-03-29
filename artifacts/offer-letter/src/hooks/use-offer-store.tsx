@@ -87,10 +87,18 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
       newState.step = action.payload;
       break;
     case 'SET_RESUME_DATA':
+      // ── IMPORTANT: only patch candidate-identity fields.
+      // Employment Details (job_title, site, salary, scenario, etc.) are
+      // intentionally preserved so a saved template remains intact when a
+      // new candidate's resume is dropped on the form mid-session.
       newState.resumeData = action.payload;
       newState.step = 'form';
-      newState.formData.candidate_full_name = action.payload.fullName;
-      newState.formData.candidate_email = action.payload.email;
+      newState.formData = {
+        ...state.formData,
+        // Only overwrite name/email — never touch employment or comp fields
+        candidate_full_name: action.payload.fullName || state.formData.candidate_full_name || '',
+        candidate_email: action.payload.email || state.formData.candidate_email || '',
+      };
       break;
     case 'SET_FIELD_VALUE':
       newState.formData = { ...state.formData, [action.field]: action.value };
