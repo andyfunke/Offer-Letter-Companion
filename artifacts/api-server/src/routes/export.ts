@@ -150,9 +150,9 @@ const signatureBlockSchema = z.object({
 }).optional();
 
 const exportSchema = z.object({
-  header: z.object({ lines: z.array(z.string()) }),
+  header: z.object({ lines: z.array(z.coerce.string()) }),
   paragraphs: z.array(z.object({ segments: z.array(segmentSchema) })),
-  footer: z.object({ lines: z.array(z.string()) }),
+  footer: z.object({ lines: z.array(z.coerce.string()) }),
   signatureBlock: signatureBlockSchema,
 });
 
