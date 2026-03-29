@@ -405,6 +405,7 @@ function OfferEditor() {
     const tokenMap = buildTokenMap(state.formData);
     const { formData, fieldStates } = state;
 
+    // fixed: shouldExport now mirrors shouldRender in LetterPreview — all semantic rules present
     function shouldExport(c: ClauseRecord): boolean {
       if (!c.optional_flag) return true;
       const rule = c.applicability_rule;
@@ -416,12 +417,25 @@ function OfferEditor() {
         const pct = formData.stip_target_percent;
         return typeof pct === 'number' ? !isNaN(pct) && pct > 0 : !!(pct && String(pct).trim());
       }
-      if (rule === 'lti_applicable') return !!formData.lti_applicable || !!(formData.lti_grant_value);
+      if (rule === 'lti_applicable') return !!formData.lti_applicable || !!(formData.lti_grant_value && String(formData.lti_grant_value).trim());
       if (rule === 'relocation_applicable') return !!(formData.relocation_origin || formData.relocation_destination);
-      if (rule === 'immigration_applicable') return !!(formData.immigration_partner_name);
+      if (rule === 'immigration_applicable') return !!(formData.immigration_partner_name && String(formData.immigration_partner_name).trim());
+      if (rule === 'prior_service_applicable') return !!(formData.recognized_service_date && String(formData.recognized_service_date).trim());
+      if (rule === 'geo_pay_applicable') return !!(formData.geo_pay_percent != null && String(formData.geo_pay_percent).trim());
+      if (rule === 'tax_support_applicable') return !!(formData.tax_year && String(formData.tax_year).trim());
+      if (rule === 'pto_applicable') return !!(formData.pto_confirmed_value != null);
+      if (rule === 'housing_benefit_applicable') return !!formData.housing_benefit_applicable;
+      if (rule === 'pay_date_change_applicable') return !!(formData.pay_date_change_note && String(formData.pay_date_change_note).trim());
+      if (rule === 'geo_premium_change_applicable') return !!(formData.geo_premium_change_note && String(formData.geo_premium_change_note).trim());
+      if (rule === 'inventions_applicable') {
+        const inv = formData.inventions_applicable;
+        if (inv === false) return false;
+        return true;
+      }
       const fv = formData[rule];
       if (typeof fv === 'boolean') return fv;
       if (typeof fv === 'string' && fv.trim()) return true;
+      if (typeof fv === 'number' && !isNaN(fv)) return true;
       return c.render_default;
     }
 
@@ -458,7 +472,7 @@ function OfferEditor() {
     // fixed: pull HR signer from form data; fall back to stored values only if not set
     const signatureBlock = {
       hrName: formData.hr_contact_name || 'HR Representative',
-      hrTitle: 'Human Resources',
+      hrTitle: formData.hr_contact_title || 'Human Resources',
       mgmtName: 'Gina Myers',
       mgmtTitle: 'President & General Manager',
       candidateName,

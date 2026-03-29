@@ -56,17 +56,20 @@ function TermsIntroLine() {
 // ─── Signature block ─────────────────────────────────────────
 function SignatureBlock({ candidateName, formData }: { candidateName: string; formData: Record<string, any> }) {
   const year = new Date().getFullYear();
+  // fixed: read HR signer from formData instead of hardcoded names
+  const hrName = formData.hr_contact_name || 'HR Representative';
+  const hrTitle = formData.hr_contact_title || 'Human Resources';
   return (
     <div className="mt-8">
       <p className="mb-10">Sincerely,</p>
 
-      {/* Two-column: Renee (left) + Gina (right) */}
+      {/* Two-column: HR contact (left) + Gina (right) */}
       <div className="grid grid-cols-2 gap-12">
         <div>
           {/* signing space */}
           <div className="h-16" />
-          <p className="font-bold">Renee Karikas</p>
-          <p className="text-slate-500">Sr. Human Resources Generalist</p>
+          <p className="font-bold">{hrName}</p>
+          <p className="text-slate-500">{hrTitle}</p>
         </div>
         <div>
           <div className="h-16" />
