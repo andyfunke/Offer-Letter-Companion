@@ -72,7 +72,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="border-t p-3 space-y-1">
           <Link href="/" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground px-3 py-1.5">
-            <- Back to app
+            {"← Back to app"}
           </Link>
           <button onClick={() => logout()}
             className="flex items-center gap-2 text-xs text-muted-foreground hover:text-destructive px-3 py-1.5 w-full">
