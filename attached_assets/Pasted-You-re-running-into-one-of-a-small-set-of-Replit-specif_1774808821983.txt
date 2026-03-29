@@ -1,0 +1,93 @@
+You’re running into one of a small set of Replit‑specific gotchas: the app either isn’t listening on the right host/port, or the `.replit` / build output isn’t wired to what the artifact expects. I can’t see your code directly from here, but I can give you a very explicit prompt you can paste into the Replit Agent so it *systematically* fixes those failure modes. [docs.replit](https://docs.replit.com/core-concepts/workspace/app-setup/ports)
+
+## What’s almost certainly broken
+
+Given the tldraw snapshot and the iframe URL, this is almost certainly a plain “web” artifact (no dedicated backend deployment) that expects a static or single‑page app served at `/` for the artifact `artifacts/offer-letter`. The usual reasons it shows blank or “Start a server” are: [docs.replit](https://docs.replit.com/core-concepts/workspace/app-setup/configuration)
+
+- The server is not binding to `0.0.0.0` and to `process.env.PORT` (Replit’s infra only auto‑detects ports that listen on `0.0.0.0` and uses its own external port mapping). [blog.replit](https://blog.replit.com/ports)
+- The `.replit` run command is wrong or pointing at the wrong script, so nothing is actually running when the iframe loads. [docs.replit](https://docs.replit.com/core-concepts/workspace/app-setup/configuration)
+- The frontend build (Vite/React/etc.) is outputting to `dist/` (or similar) but nothing is serving that directory at `/` for the artifact.  
+
+All of this is fixable via code + config edits that the Replit agent can do if you give it a very concrete script instead of “please fix it”.
+
+## Prompt to paste into Replit Agent
+
+Copy–paste the following into the Replit AI/agent in that Repl, *as is*. This tells it exactly what to open, change, and verify:
+
+> You are debugging a Replit web app called “Kinross Offer Letter Companion” that must work as a **web artifact** (no separate deployment).  
+>  
+> I want you to make the app work reliably in the Replit Webview and at the `*.replit.dev` URL. Follow these steps **exactly** and describe each change you make:  
+>  
+> 1. **Inspect the project to detect the stack**  
+>    - Open `package.json`.  
+>    - Tell me whether this is using Vite, Create React App, Next.js, plain React with a bundler, or a custom Node/Express server.  
+>  
+> 2. **Fix `.replit` run command**  
+>    - Open `.replit`.  
+>    - Ensure there is a `run` value that starts the correct dev server or web server.  
+>      - If the `package.json` has `"scripts": { "dev": "...vite..." }`, use:  
+>        - `run = "npm run dev"`  
+>      - If it has `"start": "node server.js"` or similar, use:  
+>        - `run = "npm start"`  
+>    - Remove any extra conflicting `run` definitions or broken `[deployment]` sections. Use a *single* clear `run` command.  
+>  
+> 3. **Make the server listen on `0.0.0.0` and `process.env.PORT`**  
+>    - If there is a Node/Express (or similar) server file (for example `index.js`, `server.js`, `app.js` or similar), open it.  
+>    - Find `app.listen(...)` or `server.listen(...)`. Replace it with this pattern:  
+>      ```js
+>      const PORT = process.env.PORT || 3000;
+>      const HOST = '0.0.0.0';
+>      app.listen(PORT, HOST, () => {
+>        console.log(`Server listening on http://${HOST}:${PORT}`);
+>      });
+>      ```  
+>      (Adapt variable names if needed, but keep `process.env.PORT` and `'0.0.0.0'`.)  
+>    - If this is a Vite app with no custom backend, ensure Vite binds correctly in `vite.config.js`:
+>      - Open `vite.config.js` (or `vite.config.ts`).  
+>      - Inside `defineConfig({ ... })`, ensure there is:
+>        ```js
+>        server: {
+>          host: '0.0.0.0',
+>          port: process.env.PORT ? Number(process.env.PORT) : 5173,
+>        }
+>        ```  
+>      - If `server` already exists, modify it instead of duplicating.  
+>  
+> 4. **Make sure the build output is actually served at `/`**  
+>    - If there is only a frontend (no custom Node server), confirm the dev server script is correct and that `npm run dev` starts Vite/React and opens a port.  
+>    - If there *is* a Node/Express backend, ensure it serves the built frontend:
+>      - Find the static file serving part of the code. Add something like:
+>        ```js
+>        const path = require('path');
+>        app.use(express.static(path.join(__dirname, 'dist')));
+>        app.get('*', (req, res) => {
+>          res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+>        });
+>        ```  
+>        (Replace `'dist'` with the actual build directory if different.)  
+>    - In `package.json`, ensure there is a `"build"` script (e.g. `"build": "vite build"` or `"build": "react-scripts build"`).  
+>  
+> 5. **Install dependencies and check for missing modules**  
+>    - Open the Shell and run:
+>      - `npm install`  
+>    - After install, run the command from `.replit` `run` manually in Shell (e.g. `npm run dev` or `npm start`) and watch for errors.  
+>    - For every “Cannot find module 'X'” or similar error, add that module to `dependencies` in `package.json` and run `npm install` again.  
+>  
+> 6. **Verify Webview / external URL behavior**  
+>    - After fixing everything above, click Run.  
+>    - Confirm that:
+>      - The Replit Webview shows the app instead of “Start a server” or a blank page.  
+>      - The `*.replit.dev` URL loads the same app.  
+>    - If it still fails, show me the **exact** console output, including any port messages, stack traces, or “listening on” logs, without summarizing.  
+>  
+> Do *not* propose framework migrations or big refactors. Your goal is to make the existing app work in Replit’s web environment by fixing host/port, `.replit` config, and static file routing only.
+
+## What I need from you if this still fails
+
+If you run that and the agent still can’t fix it, paste *these* things back to me:
+
+- The entire `.replit` file.  
+- Your `package.json`.  
+- The part of your server file where you start the server (`app.listen` / `server.listen`) or, if it’s pure Vite/React, the `vite.config.*` file.
+
+With those three, I can tell you *exact* diffs to apply (line by line), not just general advice.
