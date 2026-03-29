@@ -27,6 +27,7 @@ type OfferAction =
   | { type: 'SET_FIELD_VALUE'; field: string; value: any }
   | { type: 'SET_FIELD_STATE'; field: string; state: FieldState }
   | { type: 'LOAD_TEMPLATE'; payload: TemplateProfile }
+  | { type: 'CLEAR_TEMPLATE' }
   | { type: 'CONFIRM_NORMALIZATION'; normalizedAnnual: number; normalizedBiweekly: number }
   | { type: 'CONFIRM_PTO' }
   | { type: 'RESET' };
@@ -144,6 +145,9 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
       newState.normalizationConfirmed = false;
       break;
     }
+    case 'CLEAR_TEMPLATE':
+      newState.templateProfileId = null;
+      break;
     case 'CONFIRM_NORMALIZATION':
       newState.normalizationConfirmed = true;
       newState.formData = {

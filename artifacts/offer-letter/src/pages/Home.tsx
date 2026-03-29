@@ -480,7 +480,7 @@ function OfferEditor() {
                       if (!confirm(`Delete "${tpl.profileName}"?`)) return;
                       await fetch(`${apiBase()}/templates/${tpl.id}`, { method: 'DELETE', credentials: 'include' });
                       queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
-                      if (state.templateProfileId === tpl.id) dispatch({ type: 'SET_FIELD_VALUE', field: 'templateProfileId', value: null });
+                      if (state.templateProfileId === tpl.id) dispatch({ type: 'CLEAR_TEMPLATE' });
                     }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                   >
