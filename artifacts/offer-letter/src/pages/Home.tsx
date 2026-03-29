@@ -468,7 +468,6 @@ function OfferEditor() {
                   <button
                     onClick={() => {
                       dispatch({ type: 'LOAD_TEMPLATE', payload: tpl });
-                      if (tpl.site) handleSiteChange(tpl.site);
                       log('Template Sidebar', 'LOAD', { templateId: tpl.id, templateName: tpl.profileName });
                     }}
                     className={`flex-1 text-left px-3 py-2 text-sm rounded-md transition-colors ${state.templateProfileId === tpl.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'}`}
