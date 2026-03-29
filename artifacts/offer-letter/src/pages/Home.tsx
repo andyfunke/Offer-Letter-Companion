@@ -158,6 +158,7 @@ function OfferEditor() {
 
   // ── Pane width state (px). Left rail is fixed; center and right are flexible.
   const containerRef = useRef<HTMLDivElement>(null);
+  const candidateFileInputRef = useRef<HTMLInputElement>(null);
   const [centerWidth, setCenterWidth] = useState<number | null>(null); // null = flex auto
   const [rightWidth, setRightWidth] = useState(450);
 
@@ -727,11 +728,40 @@ function OfferEditor() {
                       <UploadCloud className="w-4 h-4" /> Drop resume to autofill
                     </span>
                   ) : (
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => { if (!resumeProcessing) candidateFileInputRef.current?.click(); }}
+                      disabled={resumeProcessing}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer disabled:cursor-default"
+                    >
                       <UploadCloud className="w-3.5 h-3.5" />
                       {resumeProcessing ? 'Parsing…' : 'Drop resume here to autofill'}
-                    </span>
+                    </button>
                   )}
+                  <input
+                    ref={candidateFileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.doc,.txt"
+                    className="sr-only"
+                    disabled={resumeProcessing}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        e.target.value = '';
+                        setResumeProcessing(true);
+                        try {
+                          const parsed = await extractAndParse(file);
+                          dispatch({ type: 'SET_RESUME_DATA', payload: { fullName: parsed.fullName || '', email: parsed.email || '', location: parsed.location || '', isCanada: parsed.isCanada, isWA: parsed.isWA } });
+                          toast({ title: 'Resume Parsed', description: parsed.fullName ? `Filled: ${parsed.fullName}` : 'Could not detect name — check fields manually.' });
+                          log('Candidate File Input', 'RESUME_UPLOAD', { file: file.name });
+                        } catch (err: any) {
+                          toast({ title: 'Parse Error', description: err?.message ?? 'Could not read file.', variant: 'destructive' });
+                        } finally {
+                          setResumeProcessing(false);
+                        }
+                      }
+                    }}
+                  />
                 </div>
                 <div className="p-4 bg-slate-50/50">
                   <div className="grid grid-cols-2 gap-4 mt-4">

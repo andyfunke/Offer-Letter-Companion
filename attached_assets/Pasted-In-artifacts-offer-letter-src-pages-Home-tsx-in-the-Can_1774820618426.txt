@@ -1,0 +1,56 @@
+In `artifacts/offer-letter/src/pages/Home.tsx`, in the Candidate Details section, find this block inside the drag-zone div (the one with onDragOver/onDrop={handleCandidateDrop}):
+
+```
+{candidateDragOver ? (
+  <span>...Drop resume to autofill...</span>
+) : (
+  <span> <UploadCloud .../> {resumeProcessing ? 'Parsing…' : 'Drop resume here to autofill'} </span>
+)}
+```
+
+Change only the non-dragging state span (the one showing 'Drop resume here to autofill') into a clickable button that opens a hidden file input. Specifically:
+
+1. Add a hidden `<input>` ref near the top of OfferEditor (or reuse if one already exists): `const candidateFileInputRef = useRef<HTMLInputElement>(null);`
+
+2. Add a hidden file input element inside that drag-zone section:
+```tsx
+<input
+  ref={candidateFileInputRef}
+  type="file"
+  accept=".pdf,.docx,.doc,.txt"
+  className="sr-only"
+  onChange={async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      e.target.value = '';
+      setResumeProcessing(true);
+      try {
+        const parsed = await extractAndParse(file);
+        dispatch({ type: 'SET_RESUME_DATA', payload: { fullName: parsed.fullName || '', email: parsed.email || '', location: parsed.location || '', isCanada: parsed.isCanada, isWA: parsed.isWA } });
+        toast({ title: 'Resume Parsed', description: parsed.fullName ? `Filled: ${parsed.fullName}` : 'Could not detect name — check fields manually.' });
+        log('Candidate File Input', 'RESUME_UPLOAD', { file: file.name });
+      } catch (err: any) {
+        toast({ title: 'Parse Error', description: err?.message ?? 'Could not read file.', variant: 'destructive' });
+      } finally {
+        setResumeProcessing(false);
+      }
+    }
+  }}
+  disabled={resumeProcessing}
+/>
+```
+
+3. Change the non-dragging `<span>` into a `<button>` that calls `candidateFileInputRef.current?.click()` on click:
+```tsx
+<button
+  type="button"
+  onClick={() => { if (!resumeProcessing) candidateFileInputRef.current?.click(); }}
+  disabled={resumeProcessing}
+  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer disabled:cursor-default"
+>
+  <UploadCloud className="w-3.5 h-3.5" />
+  {resumeProcessing ? 'Parsing…' : 'Drop resume here to autofill'}
+</button>
+```
+
+Do NOT change the drag-over state (the 'Drop to upload' span). Do NOT touch any other parts of the file.
