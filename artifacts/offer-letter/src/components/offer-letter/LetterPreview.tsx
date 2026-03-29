@@ -12,7 +12,6 @@ function RenderSegments({ segments, onTokenClick }: { segments: RenderedSegment[
       {segments.map((seg, i) => {
         if (seg.kind === 'text') return <React.Fragment key={i}>{seg.value}</React.Fragment>;
         if (seg.kind === 'filled') return <strong key={i}>{seg.value}</strong>;
-        // unfilled token — red clickable button
         return (
           <button
             key={i}
@@ -66,7 +65,6 @@ function SignatureBlock({ candidateName, formData }: { candidateName: string; fo
       {/* Two-column: HR contact (left) + Gina (right) */}
       <div className="grid grid-cols-2 gap-12">
         <div>
-          {/* signing space */}
           <div className="h-16" />
           <p className="font-bold">{hrName}</p>
           <p className="text-slate-500">{hrTitle}</p>
@@ -114,19 +112,14 @@ export function LetterPreview({ onTokenClick }: { onTokenClick?: (token: string)
     : '[Date]';
   const candidateName = formData.candidate_full_name || '[Candidate Name]';
 
-  // Determine if a clause should be rendered based on applicability_rule
   function shouldRender(clause: ClauseRecord): boolean {
     if (!clause.optional_flag) return true;
     const rule = clause.applicability_rule;
     if (!rule) return clause.render_default;
     if (rule === 'always') return true;
-
-    // fieldStates check — explicit 'removed' always hides
     const fs = fieldStates[rule];
     if (fs === 'removed') return false;
     if (fs === 'active' || fs === 'inherited') return true;
-
-    // Specific semantic rules
     if (rule === 'stip_applicable') {
       const pct = formData.stip_target_percent;
       return typeof pct === 'number' ? !isNaN(pct) && pct > 0 : !!(pct && String(pct).trim());
@@ -164,16 +157,13 @@ export function LetterPreview({ onTokenClick }: { onTokenClick?: (token: string)
     if (rule === 'inventions_applicable') {
       const inv = formData.inventions_applicable;
       if (inv === false) return false;
-      return true; // default to included
+      return true;
     }
-
-    // formData check for optional fields that are enabled by having a value
     const fv = formData[rule];
     if (fv === true) return true;
     if (fv === false) return false;
     if (typeof fv === 'string' && fv.trim()) return true;
     if (typeof fv === 'number' && !isNaN(fv)) return true;
-
     return clause.render_default;
   }
 
@@ -190,7 +180,7 @@ export function LetterPreview({ onTokenClick }: { onTokenClick?: (token: string)
   return (
     <div
       className="bg-white rounded-sm shadow-xl border border-black/5 p-10 h-full overflow-y-auto letter-document"
-      style={{ fontFamily: 'Arial, sans-serif', fontSize: '10pt' }}
+      style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt' }}
     >
       {/* Letter Date */}
       <p className="mb-6">{formattedDate}</p>
@@ -240,7 +230,7 @@ export function LetterPreview({ onTokenClick }: { onTokenClick?: (token: string)
       {/* Signature block */}
       <SignatureBlock candidateName={candidateName} formData={formData} />
 
-      {/* Source integrity note (subtle, for internal users) */}
+      {/* Source integrity note */}
       <div className="mt-8 pt-4 border-t border-slate-100 space-y-0.5">
         <p className="text-[10px] text-slate-300 text-center">
           Clause source: {clauses[0]?.source_file_name ?? scenario}

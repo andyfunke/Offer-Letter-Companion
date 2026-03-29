@@ -130,8 +130,12 @@
 /* Print/Document Styles */
 .letter-document {
   font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif !important;
-  @apply text-[10pt] leading-[1.6] text-slate-800;
+  /* relaxed line height; text-justify removed (caused compressed word spacing) */
+  line-height: 1.8;
+  color: #1e293b;
+  min-height: 1650px; /* ~1.5 letter pages so signature never clips */
 }
 .letter-document p {
-  @apply mb-4 text-justify;
+  margin-bottom: 1rem;
+  /* no text-justify — left-align reads naturally and avoids gappy spacing */
 }
