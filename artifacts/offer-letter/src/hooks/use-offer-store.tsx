@@ -42,7 +42,7 @@ function plusDaysISO(n: number) {
 }
 
 const initialState: OfferState = {
-  step: 'form',
+  step: 'upload', // fixed: was 'form', causing new sessions to skip the resume upload screen
   resumeData: null,
   templateProfileId: null,
   formData: {

@@ -27,7 +27,7 @@ import { useInteractionLog } from '@/hooks/use-interaction-log';
 interface HrContact { id: number; firstName: string; lastName: string; email: string | null; site: string | null; isDefault?: boolean; }
 interface PtoOption { id: number; value: number; label: string | null; }
 
-// ── Resizable pane divider hook ──────────────────────────────────────────────
+// ── Resizable pane divider hook ────────────────────────────────────────────
 function usePaneDrag(
   onDelta: (dx: number) => void,
 ) {
@@ -65,7 +65,7 @@ function usePaneDrag(
   return onMouseDown;
 }
 
-// ── Resume file processor (reused from ResumeUpload) ─────────────────────────
+// ── Resume file processor ────────────────────────────────────────────────────────
 async function extractAndParse(file: File): Promise<{ fullName: string; email: string; location: string; isCanada: boolean; isWA: boolean }> {
   let text = '';
   const ext = file.name.split('.').pop()?.toLowerCase();
@@ -115,7 +115,8 @@ async function extractAndParse(file: File): Promise<{ fullName: string; email: s
     if (m) fullName = m[1];
   }
 
-  const emailMatch = text.match(/(?<![a-zA-Z0-9])[a-z0-9][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  // fixed: opening char class was [a-z0-9], missing uppercase-starting local parts
+  const emailMatch = text.match(/(?<![a-zA-Z0-9])[a-zA-Z0-9][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/i);
   const email = emailMatch ? emailMatch[0] : '';
 
   const locationPatterns = [
@@ -156,21 +157,20 @@ function OfferEditor() {
   const [resumeProcessing, setResumeProcessing] = useState(false);
   const { log } = useInteractionLog();
 
+  // fixed: setField hoisted to top of component so all handlers below can safely reference it
+  const setField = (field: string, value: any) => dispatch({ type: 'SET_FIELD_VALUE', field, value });
+
   // ── Pane width state (px). Left rail is fixed; center and right are flexible.
   const containerRef = useRef<HTMLDivElement>(null);
   const candidateFileInputRef = useRef<HTMLInputElement>(null);
-  const [centerWidth, setCenterWidth] = useState<number | null>(null); // null = flex auto
+  const [centerWidth, setCenterWidth] = useState<number | null>(null);
   const [rightWidth, setRightWidth] = useState(450);
 
   const onDragCenter = usePaneDrag(useCallback((dx: number) => {
-    // Dragging the divider between center form and right preview:
-    // increase center, shrink right (and vice-versa)
     setRightWidth(prev => Math.max(280, prev - dx));
   }, []));
 
   const onDragLeft = usePaneDrag(useCallback((dx: number) => {
-    // Dragging the divider between left rail and center form:
-    // We achieve this by giving the center pane a computed flex-basis instead
     setCenterWidth(prev => {
       const current = prev ?? (containerRef.current?.querySelector<HTMLElement>('.center-pane')?.offsetWidth ?? 600);
       return Math.max(320, current + dx);
@@ -267,7 +267,7 @@ function OfferEditor() {
     log('Site Dropdown', 'CHANGE', { siteId, siteName: site.label });
   }
 
-  // ── Inline resume drop handler for Candidate Details section ────────────────
+  // ── Inline resume drop handler for Candidate Details section ──────────────────────
   const handleCandidateDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -277,7 +277,6 @@ function OfferEditor() {
     setResumeProcessing(true);
     try {
       const parsed = await extractAndParse(file);
-      // Dispatch — store will only update candidate_full_name + candidate_email
       dispatch({
         type: 'SET_RESUME_DATA',
         payload: {
@@ -456,10 +455,14 @@ function OfferEditor() {
     const closingContact = clauses.find(c => c.role === 'CLOSING_CONTACT');
     if (closingContact) footerLines.push(renderToString(closingContact.tokenized_text, tokenMap), '');
 
+    // fixed: pull HR signer from form data; fall back to stored values only if not set
     const signatureBlock = {
-      hrName: 'Renee Karikas', hrTitle: 'Sr. Human Resources Generalist',
-      mgmtName: 'Gina Myers', mgmtTitle: 'President & General Manager',
-      candidateName, year: new Date().getFullYear(),
+      hrName: formData.hr_contact_name || 'HR Representative',
+      hrTitle: 'Human Resources',
+      mgmtName: 'Gina Myers',
+      mgmtTitle: 'President & General Manager',
+      candidateName,
+      year: new Date().getFullYear(),
     };
 
     try {
@@ -517,12 +520,10 @@ function OfferEditor() {
 
   if (state.step === 'upload') return <ResumeUpload />;
 
-  const setField = (field: string, value: any) => dispatch({ type: 'SET_FIELD_VALUE', field, value });
-
   return (
     <div ref={containerRef} className="flex h-screen bg-background overflow-hidden" style={{ fontFamily: 'Arial, Helvetica Neue, Helvetica, sans-serif' }}>
 
-      {/* ── Left Rail ─────────────────────────────────────────────────────── */}
+      {/* ── Left Rail ───────────────────────────────────────────────────── */}
       <div className="w-64 border-r bg-card flex flex-col z-10 shrink-0">
         <div className="p-4 border-b">
           <Button
@@ -595,14 +596,14 @@ function OfferEditor() {
         </div>
       </div>
 
-      {/* ── Divider: left ↔ center ─────────────────────────────────────────── */}
+      {/* ── Divider: left ↔ center ─────────────────────────────────────────────────── */}
       <div
         className="pane-divider"
         onMouseDown={onDragLeft}
         title="Drag to resize"
       />
 
-      {/* ── Center: Form ──────────────────────────────────────────────────── */}
+      {/* ── Center: Form ───────────────────────────────────────────────────────── */}
       <div
         className="center-pane flex flex-col min-w-0"
         style={centerWidth ? { width: centerWidth, flexShrink: 0 } : { flex: 1 }}
@@ -685,9 +686,11 @@ function OfferEditor() {
                     </FieldWrapper>
                     <div className="grid grid-cols-2 gap-4">
                       <FieldWrapper id="hr_contact_name" label="HR Contact">
+                        {/* fixed: added empty placeholder option so the field has a clear unselected state */}
                         <select className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                           value={(() => { const name = state.formData.hr_contact_name || ''; const match = hrContacts.find(c => `${c.firstName} ${c.lastName}` === name); return match ? String(match.id) : ''; })()}
                           onChange={e => handleHrContactChange(e.target.value)}>
+                          <option value="">— Select HR contact —</option>
                           {hrContacts.map(c => <option key={c.id} value={String(c.id)}>{c.firstName} {c.lastName}</option>)}
                         </select>
                       </FieldWrapper>
@@ -1010,14 +1013,14 @@ function OfferEditor() {
         </div>
       </div>
 
-      {/* ── Divider: center ↔ right ────────────────────────────────────────── */}
+      {/* ── Divider: center ↔ right ──────────────────────────────────────────────────── */}
       <div
         className="pane-divider"
         onMouseDown={onDragCenter}
         title="Drag to resize"
       />
 
-      {/* ── Right Rail: Letter Preview ─────────────────────────────────────── */}
+      {/* ── Right Rail: Letter Preview ─────────────────────────────────────────────────── */}
       <div
         className="border-l bg-[#E8EAEF] p-6 shrink-0 z-10 overflow-hidden flex flex-col"
         style={{ width: rightWidth }}
