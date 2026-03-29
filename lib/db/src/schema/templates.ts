@@ -1,9 +1,11 @@
-import { pgTable, serial, text, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, jsonb, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./auth";
 
 export const templateProfilesTable = pgTable("template_profiles", {
   id: serial("id").primaryKey(),
+  createdBy: integer("created_by").references(() => usersTable.id, { onDelete: "cascade" }),
   profileName: text("profile_name").notNull(),
   baseScenario: text("base_scenario").notNull(),
   site: text("site"),
