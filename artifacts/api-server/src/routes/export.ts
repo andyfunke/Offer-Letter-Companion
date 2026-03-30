@@ -32,10 +32,8 @@ const router = Router();
 
 const FONT_SZ = 20; // 10pt in half-points
 
-// Compact spacing: line=200 (slightly tighter than single=240) + no paragraph gaps.
-// Word's default is line=240 + after=160, giving ~400 twips per paragraph.
-// This gives ~200 twips — visually about half the gap without overlapping text.
-const SPACING = `<w:spacing w:line="200" w:lineRule="auto" w:before="0" w:after="0"/>`;
+// Standard single spacing: line=240 (Word default), no paragraph gaps.
+const SPACING = `<w:spacing w:line="240" w:lineRule="auto" w:before="0" w:after="0"/>`;
 
 function xmlEscape(s: string): string {
   return s
@@ -89,14 +87,14 @@ function textParagraph(text: string, bold = false): string {
   return makeParagraph(runs);
 }
 
-/** Empty paragraph / line break */
+/** Empty paragraph / line break — single-space height */
 function emptyParagraph(): string {
-  return `<w:p><w:pPr><w:spacing w:line="120" w:lineRule="exact" w:before="0" w:after="0"/></w:pPr></w:p>`;
+  return `<w:p><w:pPr><w:spacing w:line="240" w:lineRule="auto" w:before="0" w:after="0"/></w:pPr></w:p>`;
 }
 
 /** Paragraph with explicit spacing override (for pPr) */
 function spacedParagraph(inner: string, spaceBefore = 0, spaceAfter = 0): string {
-  return `<w:p><w:pPr><w:pStyle w:val="Normal"/><w:spacing w:line="200" w:lineRule="auto" w:before="${spaceBefore}" w:after="${spaceAfter}"/></w:pPr>${inner}</w:p>`;
+  return `<w:p><w:pPr><w:pStyle w:val="Normal"/><w:spacing w:line="240" w:lineRule="auto" w:before="${spaceBefore}" w:after="${spaceAfter}"/></w:pPr>${inner}</w:p>`;
 }
 
 // ── Two-column signature table ─────────────────────────────────────────────
