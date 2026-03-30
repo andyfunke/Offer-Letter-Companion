@@ -17,9 +17,10 @@ import {
   AlertTriangle, LayoutDashboard, ClipboardList, Trash2, BookmarkPlus,
   UploadCloud,
 } from 'lucide-react';
-import { SCENARIO_LABELS, ScenarioId, getClausesForScenario, ClauseRecord } from '@/data/clause-library';
+import { SCENARIO_LABELS, ScenarioId, getClausesForScenario } from '@/data/clause-library';
 import { buildTokenMap, renderToString, renderSegments } from '@/lib/render-clause';
 import { KINROSS_SITES, US_STATES, CA_PROVINCES } from '@/data/kinross-sites';
+import { shouldApplyClause, getUnresolvedFieldIds } from '@/lib/offer-rules';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, apiBase } from '@/hooks/use-auth';
 import { useInteractionLog } from '@/hooks/use-interaction-log';
@@ -363,18 +364,14 @@ function OfferEditor() {
   }
 
   function handleScrollToFirstUnresolved() {
-    const fd = state.formData;
-    if (!fd.candidate_full_name)  return flashField('candidate_full_name');
-    if (!fd.candidate_email)      return flashField('candidate_email');
-    if (!fd.start_date)           return flashField('start_date');
-    if (!fd.governing_state)      return flashField('governing_state');
-    if (fd.pay_basis === 'salaried' && (!fd.annual_salary_input || !state.normalizationConfirmed))
-                                  return flashField('annual_salary_input');
-    if (!fd.annual_salary_input && !fd.hourly_rate_input)
-                                  return flashField('annual_salary_input');
-    if (!state.ptoConfirmed)      return flashField('pto_confirmed_value');
-    if (state.fieldStates['immigration_applicable'] === 'active' && !fd.immigration_partner_name)
-                                  return flashField('immigration_partner_name');
+    const unresolvedIds = getUnresolvedFieldIds({
+      formData: state.formData,
+      fieldStates: state.fieldStates,
+      normalizationConfirmed: state.normalizationConfirmed,
+      ptoConfirmed: state.ptoConfirmed,
+    });
+    const first = unresolvedIds[0];
+    if (first) flashField(first);
   }
 
   function handleTokenClick(token: string) {
@@ -405,39 +402,8 @@ function OfferEditor() {
     const tokenMap = buildTokenMap(state.formData);
     const { formData, fieldStates } = state;
 
-    // fixed: shouldExport now mirrors shouldRender in LetterPreview — all semantic rules present
-    function shouldExport(c: ClauseRecord): boolean {
-      if (!c.optional_flag) return true;
-      const rule = c.applicability_rule;
-      if (!rule || rule === 'always') return c.render_default;
-      const fs = fieldStates[rule];
-      if (fs === 'removed') return false;
-      if (fs === 'active' || fs === 'inherited') return true;
-      if (rule === 'stip_applicable') {
-        const pct = formData.stip_target_percent;
-        return typeof pct === 'number' ? !isNaN(pct) && pct > 0 : !!(pct && String(pct).trim());
-      }
-      if (rule === 'lti_applicable') return !!formData.lti_applicable || !!(formData.lti_grant_value && String(formData.lti_grant_value).trim());
-      if (rule === 'relocation_applicable') return !!(formData.relocation_origin || formData.relocation_destination);
-      if (rule === 'immigration_applicable') return !!(formData.immigration_partner_name && String(formData.immigration_partner_name).trim());
-      if (rule === 'prior_service_applicable') return !!(formData.recognized_service_date && String(formData.recognized_service_date).trim());
-      if (rule === 'geo_pay_applicable') return !!(formData.geo_pay_percent != null && String(formData.geo_pay_percent).trim());
-      if (rule === 'tax_support_applicable') return !!(formData.tax_year && String(formData.tax_year).trim());
-      if (rule === 'pto_applicable') return !!(formData.pto_confirmed_value != null);
-      if (rule === 'housing_benefit_applicable') return !!formData.housing_benefit_applicable;
-      if (rule === 'pay_date_change_applicable') return !!(formData.pay_date_change_note && String(formData.pay_date_change_note).trim());
-      if (rule === 'geo_premium_change_applicable') return !!(formData.geo_premium_change_note && String(formData.geo_premium_change_note).trim());
-      if (rule === 'inventions_applicable') {
-        const inv = formData.inventions_applicable;
-        if (inv === false) return false;
-        return true;
-      }
-      const fv = formData[rule];
-      if (typeof fv === 'boolean') return fv;
-      if (typeof fv === 'string' && fv.trim()) return true;
-      if (typeof fv === 'number' && !isNaN(fv)) return true;
-      return c.render_default;
-    }
+    const ruleContext = { formData, fieldStates };
+
 
     const candidateName = formData.candidate_full_name || '[Candidate Name]';
     const letterDate = formData.letter_date
@@ -452,14 +418,14 @@ function OfferEditor() {
     const headerClause = clauses.find(c => c.role === 'HEADER_OPENING');
     if (headerClause) headerLines.push(renderToString(headerClause.tokenized_text, tokenMap), '');
     const immigrationClause = clauses.find(c => c.role === 'IMMIGRATION_PARAGRAPH');
-    if (immigrationClause && shouldExport(immigrationClause))
+    if (immigrationClause && shouldApplyClause(immigrationClause, ruleContext))
       headerLines.push(renderToString(immigrationClause.tokenized_text, tokenMap), '');
     const isSalaried = ['new_hire_salaried', 'promotion_hourly_to_salary', 'site_to_site_transfer_salary'].includes(scenario);
     if (isSalaried) headerLines.push('The following terms and conditions of this offer are set out below:', '');
 
     const paragraphs: Array<{ segments: Array<{ kind: string; value?: string; token?: string }> }> = [];
     clauses.filter(c => c.role === 'CLAUSE').sort((a, b) => a.sort_order - b.sort_order).forEach(c => {
-      if (!shouldExport(c)) return;
+      if (!shouldApplyClause(c, ruleContext)) return;
       paragraphs.push({ segments: renderSegments(c.tokenized_text, tokenMap) });
     });
 
@@ -473,8 +439,8 @@ function OfferEditor() {
     const signatureBlock = {
       hrName: formData.hr_contact_name || 'HR Representative',
       hrTitle: formData.hr_contact_title || 'Human Resources',
-      mgmtName: 'Gina Myers',
-      mgmtTitle: 'President & General Manager',
+      mgmtName: formData.company_representative_name || 'Company Representative',
+      mgmtTitle: formData.company_representative_title || 'Company Representative',
       candidateName,
       year: new Date().getFullYear(),
     };
@@ -504,25 +470,46 @@ function OfferEditor() {
       }
     } catch { /* fall through to HTML */ }
 
+    const esc = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const htmlParts: string[] = ['<!DOCTYPE html><html><head><meta charset="UTF-8"><style>',
-      'body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;line-height:1.6;color:#1a1a1a}',
-      'p{margin:0 0 12px}b{font-weight:bold}',
+      'body{font-family:Arial,sans-serif;font-size:10pt;max-width:800px;margin:40px auto;line-height:1.2;color:#1a1a1a;letter-spacing:normal}',
+      'p{margin:0} .spacer{height:12pt} .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;break-inside:avoid-page;page-break-inside:avoid}',
+      '.sig-space{height:56px} .muted{color:#475569}',
       '</style></head><body>'];
     for (const line of headerLines) {
-      if (!line) { htmlParts.push('<p>&nbsp;</p>'); continue; }
-      const esc = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      htmlParts.push(`<p>${esc.replace(/\n/g,'<br>')}</p>`);
+      if (!line) { htmlParts.push('<div class="spacer"></div>'); continue; }
+      htmlParts.push(`<p>${esc(line).replace(/\n/g, '<br>')}</p>`);
+      htmlParts.push('<div class="spacer"></div>');
     }
     paragraphs.forEach((para, idx) => {
-      const content = para.segments.map(s => {
-        const v = (s.value ?? s.token ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        return s.kind === 'filled' ? `<b>${v}</b>` : v;
+      const content = para.segments.map(segment => {
+        const val = esc(segment.value ?? segment.token ?? '');
+        return segment.kind === 'filled' ? `<b>${val}</b>` : val;
       }).join('');
       htmlParts.push(`<p>${idx + 1}. ${content}</p>`);
+      htmlParts.push('<div class="spacer"></div>');
     });
     for (const line of footerLines) {
-      htmlParts.push(line ? `<p>${line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>` : '<p>&nbsp;</p>');
+      if (!line) {
+        htmlParts.push('<div class="spacer"></div>');
+      } else {
+        htmlParts.push(`<p>${esc(line)}</p>`);
+        htmlParts.push('<div class="spacer"></div>');
+      }
     }
+
+    htmlParts.push('<p>Sincerely,</p>');
+    htmlParts.push('<div class="spacer"></div>');
+    htmlParts.push('<div class="sig-grid">');
+    htmlParts.push(`<div><div class="sig-space"></div><p><b>${esc(signatureBlock.hrName)}</b></p><p class="muted">${esc(signatureBlock.hrTitle)}</p></div>`);
+    htmlParts.push(`<div><div class="sig-space"></div><p><b>${esc(signatureBlock.mgmtName)}</b></p><p class="muted">${esc(signatureBlock.mgmtTitle)}</p></div>`);
+    htmlParts.push('</div>');
+    htmlParts.push('<div class="spacer"></div><div class="spacer"></div>');
+    htmlParts.push(`<p>The above terms and conditions of employment are acceptable to me, dated this date of __________________ ${signatureBlock.year}.</p>`);
+    htmlParts.push('<div class="spacer"></div><div class="spacer"></div><div class="spacer"></div>');
+    htmlParts.push('<p>__________________________</p>');
+    htmlParts.push(`<p><b>${esc(signatureBlock.candidateName)}</b></p>`);
+
     htmlParts.push('</body></html>');
     const blob = new Blob([htmlParts.join('')], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -567,7 +554,7 @@ function OfferEditor() {
               </div>
             )}
             <div className="space-y-1">
-              {templatesData?.templates?.map(tpl => (
+              {templatesData?.templates?.map((tpl: any) => (
                 <div key={tpl.id} className="flex items-center gap-1 group">
                   <button
                     onClick={() => { dispatch({ type: 'LOAD_TEMPLATE', payload: tpl }); log('Template Sidebar', 'LOAD', { templateId: tpl.id, templateName: tpl.profileName }); }}
