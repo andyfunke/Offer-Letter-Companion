@@ -32,10 +32,8 @@ const router = Router();
 
 const FONT_SZ = 20; // 10pt in half-points
 
-// Compact spacing: line=200 (slightly tighter than single=240) + no paragraph gaps.
-// Word's default is line=240 + after=160, giving ~400 twips per paragraph.
-// This gives ~200 twips — visually about half the gap without overlapping text.
-const SPACING = `<w:spacing w:line="200" w:lineRule="auto" w:before="0" w:after="0"/>`;
+// Standard single spacing: line=240 (Word default), no paragraph gaps.
+const SPACING = `<w:spacing w:line="240" w:lineRule="auto" w:before="0" w:after="0"/>`;
 
 function xmlEscape(s: string): string {
   return s
@@ -77,6 +75,10 @@ function makeParagraph(inner: string): string {
   return `<w:p><w:pPr><w:pStyle w:val="Normal"/>${SPACING}</w:pPr>${inner}</w:p>`;
 }
 
+function makeKeepNextParagraph(inner: string): string {
+  return `<w:p><w:pPr><w:pStyle w:val="Normal"/>${SPACING}<w:keepNext/></w:pPr>${inner}</w:p>`;
+}
+
 /** Plain text paragraph. If text contains \n, inserts <w:br/> instead of splitting paragraphs. */
 function textParagraph(text: string, bold = false): string {
   if (!text.includes('\n')) return makeParagraph(makeRun(text, bold));
@@ -89,14 +91,14 @@ function textParagraph(text: string, bold = false): string {
   return makeParagraph(runs);
 }
 
-/** Empty paragraph / line break */
+/** Empty paragraph / line break — single-space height */
 function emptyParagraph(): string {
-  return `<w:p><w:pPr><w:spacing w:line="120" w:lineRule="exact" w:before="0" w:after="0"/></w:pPr></w:p>`;
+  return `<w:p><w:pPr><w:spacing w:line="240" w:lineRule="auto" w:before="0" w:after="0"/></w:pPr></w:p>`;
 }
 
 /** Paragraph with explicit spacing override (for pPr) */
 function spacedParagraph(inner: string, spaceBefore = 0, spaceAfter = 0): string {
-  return `<w:p><w:pPr><w:pStyle w:val="Normal"/><w:spacing w:line="200" w:lineRule="auto" w:before="${spaceBefore}" w:after="${spaceAfter}"/></w:pPr>${inner}</w:p>`;
+  return `<w:p><w:pPr><w:pStyle w:val="Normal"/><w:spacing w:line="240" w:lineRule="auto" w:before="${spaceBefore}" w:after="${spaceAfter}"/></w:pPr>${inner}</w:p>`;
 }
 
 // ── Two-column signature table ─────────────────────────────────────────────
@@ -127,7 +129,7 @@ function makeSignatureTable(sig: SigBlock): string {
     return `<w:tc>${tcPr()}${sigSpace}${textParagraph(name, true)}${textParagraph(title)}</w:tc>`;
   }
 
-  const sigRow = `<w:tr>${sigCell(sig.hrName, sig.hrTitle)}${sigCell(sig.mgmtName, sig.mgmtTitle)}</w:tr>`;
+  const sigRow = `<w:tr><w:trPr><w:cantSplit/></w:trPr>${sigCell(sig.hrName, sig.hrTitle)}${sigCell(sig.mgmtName, sig.mgmtTitle)}</w:tr>`;
 
   return `<w:tbl>${tblPr}${tblGrid}${sigRow}</w:tbl>`;
 }
@@ -205,7 +207,7 @@ router.post("/docx", requireAuth, async (req, res) => {
     if (sig) {
       // "Sincerely,"
       bodyParts.push(emptyParagraph());
-      bodyParts.push(textParagraph("Sincerely,"));
+      bodyParts.push(makeKeepNextParagraph(makeRun("Sincerely,")));
       bodyParts.push(emptyParagraph());
 
       // Two-column table: HR (left) + Management (right)
@@ -214,9 +216,7 @@ router.post("/docx", requireAuth, async (req, res) => {
       // Acceptance statement
       bodyParts.push(emptyParagraph());
       bodyParts.push(emptyParagraph());
-      bodyParts.push(textParagraph(
-        `The above terms and conditions of employment are acceptable to me, dated this date of __________________ ${sig.year}.`
-      ));
+      bodyParts.push(makeKeepNextParagraph(makeRun(`The above terms and conditions of employment are acceptable to me, dated this date of __________________ ${sig.year}.`)));
 
       // Candidate signature line + name
       bodyParts.push(emptyParagraph());
@@ -227,7 +227,7 @@ router.post("/docx", requireAuth, async (req, res) => {
     } else {
       // Fallback: plain Sincerely block (no signatureBlock supplied)
       bodyParts.push(emptyParagraph());
-      bodyParts.push(textParagraph("Sincerely,"));
+      bodyParts.push(makeKeepNextParagraph(makeRun("Sincerely,")));
     }
 
     // 4. Read existing document.xml and inject body content

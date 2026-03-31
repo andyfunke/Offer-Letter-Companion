@@ -1,8 +1,15 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import { TemplateProfile } from '@workspace/api-client-react';
 import { KINROSS_SITES } from '@/data/kinross-sites';
+import {
+  getUnresolvedFieldIds,
+  snapshotTemplateBaseline,
+  TEMPLATE_CONTROLLED_FORM_FIELDS,
+  type FieldState,
+  type TemplateBaseline,
+} from '@/lib/offer-rules';
 
-export type FieldState = 'active' | 'removed' | 'inherited';
+export type { FieldState };
 
 export interface OfferState {
   step: 'upload' | 'form';
@@ -14,6 +21,7 @@ export interface OfferState {
     isWA: boolean;
   } | null;
   templateProfileId: number | null;
+  templateBaseline: TemplateBaseline | null;
   formData: Record<string, any>;
   fieldStates: Record<string, FieldState>;
   unresolvedDecisions: number;
@@ -42,9 +50,10 @@ function plusDaysISO(n: number) {
 }
 
 const initialState: OfferState = {
-  step: 'upload', // fixed: was 'form', causing new sessions to skip the resume upload screen
+  step: 'upload',
   resumeData: null,
   templateProfileId: null,
+  templateBaseline: null,
   formData: {
     scenario_type: 'new_hire_salaried',
     pay_basis: 'salaried',
@@ -63,21 +72,37 @@ const initialState: OfferState = {
   ptoConfirmed: false,
 };
 
-function calculateUnresolved(state: OfferState): number {
-  let count = 0;
-  if (!state.formData.candidate_full_name) count++;
-  if (!state.formData.candidate_email) count++;
-  if (!state.formData.start_date) count++;
-  if (!state.formData.governing_state) count++;
-  if (!state.ptoConfirmed) count++;
-  
-  if (state.formData.pay_basis === 'salaried' && !state.normalizationConfirmed) count++;
-  if (!state.formData.annual_salary_input && !state.formData.hourly_rate_input) count++;
+function recalculateUnresolved(state: OfferState): number {
+  return getUnresolvedFieldIds({
+    formData: state.formData,
+    fieldStates: state.fieldStates,
+    normalizationConfirmed: state.normalizationConfirmed,
+    ptoConfirmed: state.ptoConfirmed,
+  }).length;
+}
 
-  if (state.fieldStates['relocation_applicable'] === 'active' && state.formData.relocation_repayment_agreement_required === undefined) count++;
-  if (state.fieldStates['immigration_applicable'] === 'active' && !state.formData.immigration_partner_name) count++;
+function restoreCurrentTemplate(state: OfferState): Pick<OfferState, 'formData' | 'fieldStates'> {
+  if (!state.templateBaseline) {
+    return { formData: state.formData, fieldStates: state.fieldStates };
+  }
 
-  return count;
+  const { templateBaseline } = state;
+  const restoredForm = { ...state.formData };
+  for (const key of templateBaseline.controlledFormFields) {
+    restoredForm[key] = templateBaseline.formData[key];
+  }
+
+  const restoredFieldStates: Record<string, FieldState> = { ...state.fieldStates };
+  for (const key of templateBaseline.controlledFieldStateKeys) {
+    delete restoredFieldStates[key];
+  }
+  for (const [key, value] of Object.entries(templateBaseline.fieldStates)) {
+    if (value !== undefined) {
+      restoredFieldStates[key] = value;
+    }
+  }
+
+  return { formData: restoredForm, fieldStates: restoredFieldStates };
 }
 
 function offerReducer(state: OfferState, action: OfferAction): OfferState {
@@ -87,15 +112,10 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
       newState.step = action.payload;
       break;
     case 'SET_RESUME_DATA':
-      // ── IMPORTANT: only patch candidate-identity fields.
-      // Employment Details (job_title, site, salary, scenario, etc.) are
-      // intentionally preserved so a saved template remains intact when a
-      // new candidate's resume is dropped on the form mid-session.
       newState.resumeData = action.payload;
       newState.step = 'form';
       newState.formData = {
         ...state.formData,
-        // Only overwrite name/email — never touch employment or comp fields
         candidate_full_name: action.payload.fullName || state.formData.candidate_full_name || '',
         candidate_email: action.payload.email || state.formData.candidate_email || '',
       };
@@ -104,7 +124,11 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
       newState.formData = { ...state.formData, [action.field]: action.value };
       if (action.field === 'annual_salary_input' || action.field === 'pay_basis') {
         newState.normalizationConfirmed = false;
-        newState.formData = { ...newState.formData, normalized_annual_salary: undefined, normalized_biweekly_pay: undefined };
+        newState.formData = {
+          ...newState.formData,
+          normalized_annual_salary: undefined,
+          normalized_biweekly_pay: undefined,
+        };
       }
       if (action.field === 'pto_confirmed_value') {
         newState.ptoConfirmed = false;
@@ -112,50 +136,68 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
       break;
     case 'SET_FIELD_STATE':
       newState.fieldStates = { ...state.fieldStates, [action.field]: action.state };
-      
-      // Cascading logic
       if (action.field === 'relocation_applicable' && action.state === 'removed') {
-        newState.fieldStates['relocation_repayment_agreement_required'] = 'removed';
-        newState.fieldStates['relocation_policy_attached'] = 'removed';
+        newState.fieldStates.relocation_repayment_agreement_required = 'removed';
+        newState.fieldStates.relocation_policy_attached = 'removed';
       }
       break;
     case 'LOAD_TEMPLATE': {
       const tpl = action.payload;
-      newState.templateProfileId = tpl.id;
 
-      // Resolve site-derived fields atomically so no separate handleSiteChange call is needed
+      // Always restore previous template before applying a new one.
+      const base = restoreCurrentTemplate(state);
+      const baseFormData = base.formData;
+      const baseFieldStates = base.fieldStates;
+
       const site = tpl.site ? KINROSS_SITES.find(s => s.id === tpl.site) : undefined;
-
-      // Restore HR contact from template's defaultHrContact { name, email }
       const hrContact = tpl.defaultHrContact ?? {};
 
-      newState.formData = {
-        ...state.formData,
-        scenario_type: tpl.baseScenario,
-        selected_site_id: tpl.site || '',
-        ...(site ? {
-          site_subsidiary_name: site.subsidiaryName,
-          site_location: site.location,
-          governing_state: site.governingState,
-        } : {}),
-        ...(hrContact.name ? {
-          hr_contact_name: hrContact.name,
-          hr_contact_email: hrContact.email || '',
-        } : {}),
+      const templateFieldStates: Record<string, FieldState> = {};
+      (tpl.activeFields ?? []).forEach((f: string) => { templateFieldStates[f] = 'inherited'; });
+      (tpl.removedFields ?? []).forEach((f: string) => { templateFieldStates[f] = 'removed'; });
+      const templateFieldStateKeys = Object.keys(templateFieldStates);
+
+      const baselineFieldStates: Record<string, FieldState> = {};
+      for (const key of templateFieldStateKeys) {
+        if (baseFieldStates[key] !== undefined) baselineFieldStates[key] = baseFieldStates[key];
+      }
+
+      const baseline: TemplateBaseline = {
+        formData: snapshotTemplateBaseline(baseFormData),
+        fieldStates: baselineFieldStates,
+        controlledFormFields: [...TEMPLATE_CONTROLLED_FORM_FIELDS],
+        controlledFieldStateKeys: templateFieldStateKeys,
       };
 
-      // Build field states from template, merging over current
-      const tplFieldStates: Record<string, FieldState> = {};
-      (tpl.activeFields ?? []).forEach(f => { tplFieldStates[f] = 'inherited'; });
-      (tpl.removedFields ?? []).forEach(f => { tplFieldStates[f] = 'removed'; });
-      newState.fieldStates = { ...state.fieldStates, ...tplFieldStates };
-      // Reset normalization when scenario changes
+      const nextFormData = { ...baseFormData };
+      nextFormData.scenario_type = tpl.baseScenario;
+      nextFormData.selected_site_id = tpl.site || '';
+      nextFormData.site_subsidiary_name = site?.subsidiaryName || '';
+      nextFormData.site_location = site?.location || '';
+      nextFormData.governing_state = site?.governingState || '';
+      nextFormData.hr_contact_name = hrContact.name || '';
+      nextFormData.hr_contact_email = hrContact.email || '';
+
+      newState.templateProfileId = tpl.id;
+      newState.templateBaseline = baseline;
+      newState.formData = nextFormData;
+      newState.fieldStates = { ...baseFieldStates, ...templateFieldStates };
       newState.normalizationConfirmed = false;
       break;
     }
-    case 'CLEAR_TEMPLATE':
+    case 'CLEAR_TEMPLATE': {
+      const base = restoreCurrentTemplate(state);
+      const clearedFieldStates: Record<string, FieldState> = {};
+      for (const [key, value] of Object.entries(base.fieldStates)) {
+        if (value !== 'inherited') clearedFieldStates[key] = value;
+      }
+
       newState.templateProfileId = null;
+      newState.templateBaseline = null;
+      newState.formData = base.formData;
+      newState.fieldStates = clearedFieldStates;
       break;
+    }
     case 'CONFIRM_NORMALIZATION':
       newState.normalizationConfirmed = true;
       newState.formData = {
@@ -172,8 +214,8 @@ function offerReducer(state: OfferState, action: OfferAction): OfferState {
     default:
       return state;
   }
-  
-  newState.unresolvedDecisions = calculateUnresolved(newState);
+
+  newState.unresolvedDecisions = recalculateUnresolved(newState);
   return newState;
 }
 
