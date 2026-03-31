@@ -9,7 +9,8 @@ router.use(requireAuth, requireRole("admin"));
 // GET /api/admin/interactions?limit=100&since=<ISO>
 router.get("/", async (req, res) => {
   try {
-    const limit = Math.min(parseInt(String(req.query.limit ?? "200")), 500);
+    const parsedLimit = parseInt(String(req.query.limit ?? "200"));
+    const limit = Math.min(isNaN(parsedLimit) ? 200 : parsedLimit, 500);
     const since = req.query.since ? new Date(String(req.query.since)) : undefined;
 
     let query = db

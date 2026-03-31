@@ -53,8 +53,8 @@ try {
 }
 
 // ── Purge expired sessions once on startup, then every hour ───────────────
-purgeExpiredSessions().catch(() => {});
-setInterval(() => purgeExpiredSessions().catch(() => {}), 60 * 60 * 1000);
+purgeExpiredSessions().catch((err) => { logger.warn({ err }, 'Initial session purge failed'); });
+setInterval(() => purgeExpiredSessions().catch((err) => { logger.warn({ err }, 'Periodic session purge failed'); }), 60 * 60 * 1000);
 
 // ── Purge old offer drafts (older than 24h) every hour ───────────────────
 async function purgeOldDrafts() {
@@ -65,8 +65,8 @@ async function purgeOldDrafts() {
     logger.warn({ err }, "Draft purge failed — will retry next cycle");
   }
 }
-purgeOldDrafts().catch(() => {});
-setInterval(() => purgeOldDrafts().catch(() => {}), 60 * 60 * 1000);
+purgeOldDrafts().catch((err) => { logger.warn({ err }, 'Initial draft purge failed'); });
+setInterval(() => purgeOldDrafts().catch((err) => { logger.warn({ err }, 'Periodic draft purge failed'); }), 60 * 60 * 1000);
 
 app.listen(port, (err) => {
   if (err) {

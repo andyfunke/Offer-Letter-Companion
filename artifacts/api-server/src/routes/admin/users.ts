@@ -53,7 +53,7 @@ async function logUserEvent(
 ) {
   try {
     await db.insert(userEventsTable).values({ userId, targetUsername, event, changedBy, detail: detail ?? null });
-  } catch { /* non-fatal */ }
+  } catch (err) { req.log?.warn({ err }, 'logUserEvent failed'); }
 }
 
 // GET /api/admin/users
@@ -93,6 +93,7 @@ router.post("/", async (req, res) => {
 // GET /api/admin/users/:id
 router.get("/:id", async (req, res) => {
   const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
   if (!user) { res.status(404).json({ error: "User not found." }); return; }
   res.json(safeUser(user));
@@ -101,6 +102,7 @@ router.get("/:id", async (req, res) => {
 // GET /api/admin/users/:id/events
 router.get("/:id/events", async (req, res) => {
   const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
   const [adminEvents, interactions] = await Promise.all([
     db.select().from(userEventsTable)
       .where(eq(userEventsTable.userId, id))
@@ -139,6 +141,7 @@ router.get("/:id/events", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
     const body = updateUserSchema.parse(req.body);
     const emailVal = body.email === '' ? null : body.email;
 
@@ -171,6 +174,7 @@ router.put("/:id", async (req, res) => {
 router.post("/:id/reset-password", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
     const { newPassword } = resetPasswordSchema.parse(req.body);
     const passwordHash = await hashPassword(newPassword);
     const [user] = await db.update(usersTable)
@@ -189,6 +193,7 @@ router.post("/:id/reset-password", async (req, res) => {
 // DELETE /api/admin/users/:id?hard=true — soft deactivate or hard delete
 router.delete("/:id", async (req, res) => {
   const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
   const hard = req.query.hard === "true";
 
   if (id === req.user!.id) {

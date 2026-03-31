@@ -50,6 +50,7 @@ router.post("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
     const [template] = await db.select().from(templateProfilesTable).where(eq(templateProfilesTable.id, id));
     if (!template) {
       res.status(404).json({ error: "Template not found" });
@@ -65,6 +66,7 @@ router.get("/:id", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
     const body = templateBodySchema.parse(req.body);
     const [template] = await db.update(templateProfilesTable)
       .set({ ...body, site: body.site ?? null, letterheadId: body.letterheadId ?? null, updatedAt: new Date() })
@@ -88,6 +90,7 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
     await db.delete(templateProfilesTable).where(eq(templateProfilesTable.id, id));
     res.status(204).send();
   } catch (err) {

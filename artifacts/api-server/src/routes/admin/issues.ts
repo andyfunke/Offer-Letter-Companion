@@ -51,6 +51,7 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
     const [issue] = await db
       .select()
       .from(telemetryIssuesTable)
@@ -86,6 +87,7 @@ router.get("/:id", async (req, res) => {
 router.get("/:id/preview", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
     const [snapshot] = await db
       .select()
       .from(issueSnapshotsTable)
@@ -107,6 +109,7 @@ router.get("/:id/preview", async (req, res) => {
 router.put("/:id/status", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
     const { status } = statusUpdateSchema.parse(req.body);
     const [issue] = await db
       .update(telemetryIssuesTable)
@@ -133,6 +136,7 @@ router.put("/:id/status", async (req, res) => {
 router.post("/:id/notes", async (req, res) => {
   try {
     const issueId = parseInt(req.params.id);
+    if (isNaN(issueId)) { res.status(400).json({ error: "Invalid id." }); return; }
     const { noteText } = addNoteSchema.parse(req.body);
 
     const [issue] = await db

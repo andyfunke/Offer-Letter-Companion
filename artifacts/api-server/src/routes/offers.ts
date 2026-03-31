@@ -52,6 +52,7 @@ router.post("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
     const [offer] = await db.select().from(offerDraftsTable).where(eq(offerDraftsTable.id, id));
     if (!offer) {
       res.status(404).json({ error: "Offer not found" });
@@ -67,6 +68,7 @@ router.get("/:id", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
     const body = offerBodySchema.parse(req.body);
     const [offer] = await db.update(offerDraftsTable)
       .set({
@@ -97,6 +99,7 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid id." }); return; }
     await db.delete(offerDraftsTable).where(eq(offerDraftsTable.id, id));
     res.status(204).send();
   } catch (err) {

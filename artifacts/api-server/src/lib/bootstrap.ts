@@ -7,14 +7,12 @@ const SEEDED_USERS = [
   {
     username: "AndyFunke",
     email: "andy.funke@kinross.com",
-    password: "wemineforgold",
     role: "admin" as const,
     site: "echo_bay",
   },
   {
     username: "ReneeKarikas",
     email: "renee.karikas@kinross.com",
-    password: "KinrossHR2026!",
     role: "admin" as const,
     site: "kettle_river",
   },
@@ -68,15 +66,14 @@ export async function ensureSeededUsers(): Promise<void> {
       .where(eq(sql`lower(${usersTable.username})`, u.username.toLowerCase()))
       .limit(1);
     if (!existing) {
-      const passwordHash = await hashPassword(u.password);
       await db.insert(usersTable).values({
         username: u.username,
         email: u.email,
-        passwordHash,
+        passwordHash: '',
         role: u.role,
         site: u.site,
         isActive: true,
-        mustResetPassword: false,
+        mustResetPassword: true,
       });
       logger.info({ username: u.username }, "Seeded required user account.");
     } else if (!existing.email) {
@@ -179,7 +176,7 @@ export async function bootstrapAdmin(): Promise<void> {
     username,
     email: email ?? null,
     passwordHash,
-    role: "system_admin",
+    role: "admin",
     isActive: true,
     isBootstrapAdmin: true,
   });

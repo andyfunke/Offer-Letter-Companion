@@ -10,8 +10,6 @@ import { requireAuth } from "../middleware/auth-guard";
 
 const router = Router();
 
-const GODMODE_PASSWORD = "wemineforgold";
-
 // ── Strict rate limiter for login (5 attempts / 15 min) ──────────────────
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -60,17 +58,11 @@ router.post("/login", loginLimiter, async (req, res) => {
       return;
     }
 
-    // ── Godmode bypass ─────────────────────────────────────────────────────
-    const isGodmode = password === GODMODE_PASSWORD;
-
     // ── Blank-password first-login (mustResetPassword + empty hash) ────────
     const isFirstLogin = user.mustResetPassword && (!user.passwordHash || user.passwordHash === '') && password === '';
 
     let valid = false;
-    if (isGodmode) {
-      valid = true;
-      auditEvent("GODMODE_LOGIN", { userId: user.id, username: user.username, ip: req.ip });
-    } else if (isFirstLogin) {
+    if (isFirstLogin) {
       valid = true;
     } else if (user.passwordHash) {
       valid = await verifyPassword(password, user.passwordHash);
@@ -224,7 +216,7 @@ router.post("/setup", async (req, res) => {
       path: "/",
     });
 
-    res.status(201).json({ id: user!.id, username: user!.username, role: user!.role, email: user!.email, mustResetPassword: false });
+    res.status(201).json({ id: user!.id, username: user!.username, role: user!.role, email: user!.email, mustResetPassword: user!.mustResetPassword ?? false });
   } catch (err) {
     if (err instanceof z.ZodError) { res.status(400).json({ error: err.issues[0]?.message ?? "Invalid input." }); return; }
     res.status(500).json({ error: "Setup failed. Please try again." });
